@@ -1,34 +1,43 @@
 import { Currency } from "@/enums/CurrencyEnum";
 import { ProductImage } from "./images/image";
 import { Region } from "./region/region";
-import { User } from "./user/user";
 import { Category } from "./category";
 import { Attribute } from "./attribute/attribute";
+import { ProductUser } from "./user/productUser";
+import { Shop } from "./shop/Shop";
 
 export interface Product {
-    id: string,
-    categoryId: string,
-    userId: string,
-    name: string,
-    slug: string,
-    description: string,
-    price: string | null,
-    currency: Currency,
-    latitude: number,
-    longitude: number,
-    isUrgent: boolean,
-    enableTelegram: boolean,
-    contactName: string,
-    contactPhone: string,
-    facebookPostId:  string | null,
-    telegramPostId: string | null,
-    instagramPostId: string | null,
-    createdAt: string;
-    updatedAt: string;
-    deletedAt: string | null;
-    region: Region,
-    images: ProductImage[],
-    user: User,
-    category: Category,
-    attributes: Attribute[]
+  id: string;
+  categoryId: string;
+  userId: string;
+  regionId: string;
+  shopId: string | null;
+  name: string;
+  slug: string;
+  description: string;
+  price: string | null;
+  currency: Currency;
+  latitude: number;
+  longitude: number;
+  isUrgent: boolean;
+  enableTelegram: boolean;
+  contactName: string;
+  contactPhone: string;
+  facebookPostId: string | null;
+  telegramPostId: string | null;
+  instagramPostId: string | null;
+  isFavorited: boolean;
+  isRatedByCurrentUser: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  region: Region;
+  images: ProductImage[];
+  user: ProductUser;
+  shop: Shop | null;
+  category: Category;
+  attributes: Attribute[];
+  viewCount: number;
+  averageRating: number | null;
+  totalRatings: number;
 }

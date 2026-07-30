@@ -20,7 +20,7 @@ export default async function ProductPage({params}: Props) {
 
     return (
         <>
-            <ProductDetails product={product}/>;
+            <ProductDetails product={product}/>
 
             <HorizontalProductSection
       title="Объявления продавца"

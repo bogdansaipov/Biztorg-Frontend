@@ -1,13 +1,116 @@
 "use client";
 
-import { ImageUp, X } from "lucide-react";
-import { Dispatch, SetStateAction, useRef } from "react";
+import { ImageUp, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface Props {
   previewImages: string[];
   setPreviewImages: Dispatch<SetStateAction<string[]>>;
   uploadedFiles: File[];
   setUploadedFiles: Dispatch<SetStateAction<File[]>>;
+}
+
+const LIGHTBOX_Z_INDEX = 2147483647;
+
+// Fullscreen preview for the images the user has already picked, before
+// upload — same portal + fixed-z-index pattern used on the product detail
+// page's image lightbox, but simpler (no seller bar, no thumbnail rail,
+// since there are only ever up to 4 local previews here).
+function ImagePreviewLightbox({
+  images,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  images: string[];
+  index: number | null;
+  onIndexChange: (updater: (i: number) => number) => void;
+  onClose: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (index === null) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [index]);
+
+  useEffect(() => {
+    if (index === null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") onIndexChange((i) => (i - 1 + images.length) % images.length);
+      else if (e.key === "ArrowRight") onIndexChange((i) => (i + 1) % images.length);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [index, images.length, onIndexChange, onClose]);
+
+  if (index === null || !mounted) return null;
+
+  const goPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onIndexChange((i) => (i - 1 + images.length) % images.length);
+  };
+  const goNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onIndexChange((i) => (i + 1) % images.length);
+  };
+
+  const overlay = (
+    <div
+      className="fixed inset-0 bg-black/90 flex flex-col"
+      style={{ zIndex: LIGHTBOX_Z_INDEX }}
+      onClick={onClose}
+    >
+      <div className="flex items-center justify-between px-4 py-3 shrink-0">
+        <span className="text-white/80 text-sm font-medium">
+          {index + 1} из {images.length}
+        </span>
+        <button
+          onClick={onClose}
+          className="text-white hover:opacity-70 transition cursor-pointer p-1"
+          aria-label="Закрыть"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="relative flex-1 min-h-0 flex items-center justify-center px-4 pb-6">
+        <img
+          src={images[index]}
+          alt="preview"
+          className="max-w-full max-h-full object-contain rounded-xl cursor-default"
+          onClick={(e) => e.stopPropagation()}
+        />
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={goPrev}
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition"
+              aria-label="Предыдущее фото"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goNext}
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition"
+              aria-label="Следующее фото"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
 }
 
 export default function ImageUploader({
@@ -17,6 +120,7 @@ export default function ImageUploader({
   setUploadedFiles,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
@@ -54,13 +158,16 @@ export default function ImageUploader({
     }
   };
 
-  const removeImage = (index: number) => {
+  const removeImage = (e: React.MouseEvent, index: number) => {
+    // Stop propagation so clicking the X to delete a preview doesn't also
+    // bubble up and open the lightbox for that same image.
+    e.stopPropagation();
     setPreviewImages(previewImages.filter((_, i) => i !== index));
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
 
   return (
-    <section className="bg-gray-50 rounded-xl p-9">
+    <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-9">
       <h2 className="text-2xl font-bold mb-4 text-gray-700">
         Фотографии (от 1 до 4)
       </h2>
@@ -81,7 +188,7 @@ export default function ImageUploader({
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
-          <button className="bg-primary text-white px-4 font-semibold py-2.5 rounded-xl">
+          <button className="cursor-pointer bg-primary text-white px-4 font-semibold py-2.5 rounded-xl">
             Выберите фото
           </button>
 
@@ -96,7 +203,8 @@ export default function ImageUploader({
           {previewImages.map((img, i) => (
             <div
               key={i}
-              className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group"
+              onClick={() => setLightboxIndex(i)}
+              className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group cursor-zoom-in"
             >
               <img
                 src={img}
@@ -105,10 +213,10 @@ export default function ImageUploader({
               />
 
               <button
-                onClick={() => removeImage(i)}
+                onClick={(e) => removeImage(e, i)}
                 className="absolute top-2 cursor-pointer right-2 bg-white rounded-full p-1 opacity-80 hover:opacity-100"
               >
-                <X className="w-5 h-5"/>
+                <X className="w-5 h-5" />
               </button>
             </div>
           ))}
@@ -118,11 +226,18 @@ export default function ImageUploader({
               className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer"
               onClick={triggerFileInput}
             >
-              <ImageUp className="w-7 h-7 text-black/70"/>
+              <ImageUp className="w-7 h-7 text-black/70" />
             </div>
           )}
         </div>
       )}
+
+      <ImagePreviewLightbox
+        images={previewImages}
+        index={lightboxIndex}
+        onIndexChange={(updater) => setLightboxIndex((i) => (i === null ? i : updater(i)))}
+        onClose={() => setLightboxIndex(null)}
+      />
     </section>
   );
 }

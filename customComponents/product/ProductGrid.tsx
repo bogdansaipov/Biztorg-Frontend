@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Heart } from "lucide-react";
 import { api } from "@/helpers/api";
 import { ProductImage } from "@/types/images/image";
 import { Product } from "@/types/Product";
 import {Currency} from "@/enums/CurrencyEnum"
 import { ProductsResponse, ProductsResponseInterface } from "@/types/responses/product.response";
 import Link from "next/link";
+import FavoriteButton from "@/components/ui/FavoriteButton";
+import CircularLoader from "@/components/ui/CircularLoader";
 
 
 interface Props {
@@ -29,7 +30,7 @@ export default function ProductGrid ({initialProducts, initialPage, totalPages}:
     setLoading(true);
 
     const res = await api.get<ProductsResponse>("/products", {
-      params: { page: page + 1, limit: 4},
+      params: { page: page + 1, limit: 20},
     });
 
     const { products, pagination } = res.data.data;
@@ -44,8 +45,12 @@ export default function ProductGrid ({initialProducts, initialPage, totalPages}:
 };
 
   return (
-    <section className="max-w-7xl mx-auto px-6 py-6">
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <section className="max-w-[1400px] mx-auto px-4 lg:px-0 py-6">
+      <div
+        className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-3 transition-opacity duration-300 ${
+          loading ? "opacity-40 pointer-events-none" : "opacity-100"
+        }`}
+      >
         {products.map((product) => {
           const mainImage =
             product.images.find((i: ProductImage) => i.isMain)?.imageUrl ??
@@ -56,37 +61,47 @@ export default function ProductGrid ({initialProducts, initialPage, totalPages}:
             <div
               className="rounded-xl hover:bg-gray-100 transition p-2"
             >
-              <div className="relative h-[310px] rounded-2xl overflow-hidden">
+              <div className="relative aspect-square rounded-2xl overflow-hidden">
                 <Image
-                  src={`http://localhost:3001/public${mainImage}`}
+                  src={`https://169-58-13-208.nip.io/public${mainImage}`}
                   alt={product.name}
                   fill
                   className="object-cover"
                   unoptimized
                 />
 
-                {/* Favorite */}
-                <button className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-primary" />
-                </button>
+                {/* Favorite — seeded from this product's own isFavorited
+                    flag, which every /products response already includes
+                    per item. */}
+                <FavoriteButton
+                  productId={product.id}
+                  initialFavorited={product.isFavorited}
+                  className="absolute bottom-2 right-2"
+                />
               </div>
 
-              {/* Price */}
-              <p className="mt-4 text-xl font-bold text-black/80">
+              {/* Price — matches birbir's computed styles exactly:
+                  18px / 700 / line-height 22px / color #292929 / margin-bottom 6px,
+                  single line (no wrap). */}
+              <p className="mt-3 text-[18px] font-bold leading-[22px] text-[#292929] line-clamp-1 mb-1.5">
                 {Number(product.price).toLocaleString("ru-RU")}{" "}
                 {product.currency == Currency.USD ? "у.e" : "сум"}
               </p>
 
-              {/* Title */}
-              <p className="mt-1 text-gray-700 font-semibold line-clamp-2 text-black/80">
+              {/* Title — matches birbir's computed styles exactly:
+                  16px / 400 / line-height 19px / color #292929 / margin-bottom 5px,
+                  clamped to 2 lines. Height still reserved for 2 lines so
+                  region/date stay aligned across cards regardless of title length. */}
+              <p className="text-[16px] leading-[19px] font-normal text-[#292929] line-clamp-2 min-h-[38px] mb-[5px]">
                 {product.name}
               </p>
 
-              {/* Region + date */}
-              <p className="mt-2 text-black/70">
+              {/* Region + date — both match birbir's shared "footerText" style
+                  exactly: 14px / 500 / line-height 17px / color #858585 / margin-bottom 4px */}
+              <p className="text-[14px] font-medium leading-[17px] text-[#858585] mb-1">
                 {product.region?.name}
               </p>
-              <p className="text-black/70 text-sm">
+              <p className="text-[14px] font-medium leading-[17px] text-[#858585]">
                 {new Date(product.createdAt).toLocaleDateString("ru-RU")}
               </p>
             </div>
@@ -96,43 +111,42 @@ export default function ProductGrid ({initialProducts, initialPage, totalPages}:
       </div>
 
       {/* Load more */}
-{/* Load more */}
-{hasMore && (
-  <div className="mt-6 max-w-7xl mx-auto px-6">
-    <button
-      onClick={loadMore}
-      disabled={loading}
-      className="
-        w-full
-        bg-gray-100
-        hover:bg-gray-200
-        border
-        border-gray-200
-        text-gray-800
-        px-8
-        py-4
-        rounded-2xl
-        flex
-        items-center
-        justify-center
-        gap-3
-        transition
-        disabled:cursor-not-allowed,
-        cursor-pointer
-        disabled:opacity-60
-      "
-    >
-      {loading ? (
-        <>
-          <span>Загрузка</span>
-          <span className="w-4 h-4 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
-        </>
-      ) : (
-        "Показать ещё"
+      {hasMore && (
+        <div className="mt-6">
+          <button
+            onClick={loadMore}
+            disabled={loading}
+            className="
+              w-full
+              bg-gray-100
+              hover:bg-gray-200
+              border
+              border-gray-200
+              text-gray-800
+              px-8
+              py-4
+              rounded-2xl
+              flex
+              items-center
+              justify-center
+              gap-3
+              transition
+              cursor-pointer
+              disabled:cursor-not-allowed
+              disabled:opacity-60
+            "
+          >
+            {loading ? (
+              <>
+                <span>Загрузка</span>
+                <CircularLoader size={18} />
+              </>
+            ) : (
+              "Показать ещё"
+            )}
+          </button>
+        </div>
       )}
-    </button>
-  </div>
-)}
 
     </section>
   );

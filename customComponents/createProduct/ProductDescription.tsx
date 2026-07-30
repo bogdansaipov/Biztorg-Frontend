@@ -10,7 +10,7 @@ export default function ProductDescription({
   setDescription,
 }: Props) {
   return (
-    <section className="bg-gray-50 rounded-xl p-9 mb-6">
+    <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-9 mb-6">
       <h2 className="text-2xl font-bold mb-2 text-gray-700">Описание</h2>
 
       <textarea

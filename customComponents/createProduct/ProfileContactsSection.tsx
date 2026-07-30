@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Info, CircleUser, Store, Check } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { formatUzPhone } from "@/helpers/phone";
 import { cn } from "@/lib/utils";
+import { getMyShops } from "@/services/shop.service";
+import { MyShopItem } from "@/types/responses/shop.response";
+
+const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
 
 interface User {
   name?: string | null;
@@ -17,6 +22,8 @@ export default function ProfileContactsSection({
   setContactPhone,
   enableTelegram,
   setEnableTelegram,
+  postAsShopId,
+  setPostAsShopId,
 }: {
   contactName: string;
   setContactName: (v: string) => void;
@@ -24,7 +31,12 @@ export default function ProfileContactsSection({
   setContactPhone: (v: string) => void;
   enableTelegram: boolean;
   setEnableTelegram: (v: boolean) => void;
+  postAsShopId: string | null;
+  setPostAsShopId: (v: string | null) => void;
 }) {
+  const [userName, setUserName] = useState<string | null>(null);
+  const [shops, setShops] = useState<MyShopItem[]>([]);
+
   useEffect(() => {
     const raw = localStorage.getItem("user");
     if (!raw) return;
@@ -32,14 +44,23 @@ export default function ProfileContactsSection({
     const user: User = JSON.parse(raw);
 
     if (user.name) {
+      setUserName(user.name);
       setContactName(user.name);
     }
 
-   if (user.phone && contactPhone.length <= 5) {
-  setContactPhone(formatUzPhone(user.phone));
-}
+    if (user.phone && contactPhone.length <= 5) {
+      setContactPhone(formatUzPhone(user.phone));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-
+  useEffect(() => {
+    getMyShops()
+      .then(setShops)
+      .catch((err) => {
+        console.error("Failed to load shops for contacts section", err);
+        setShops([]);
+      });
   }, []);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,17 +72,87 @@ export default function ProfileContactsSection({
   };
 
   return (
-    <section className="bg-gray-50 rounded-xl p-9 mb-6">
+    <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-9 mb-6">
       <h2 className="text-2xl font-bold mb-6 text-gray-700">
         Данные профиля и контакты для связи
       </h2>
 
+      {/* Only shown at all once the user actually has at least one shop —
+          with none, there's nothing to choose between and this whole
+          picker would just be a confusing extra step for a personal-only
+          listing, same as the mobile app skipping it in that case. */}
+      {shops.length > 0 && (
+        <div className="w-full sm:w-2/3 mb-6">
+          <div className="flex gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 mb-3">
+            <Info className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-gray-600">
+              Выберите, от чьего имени будет опубликовано объявление — с вашего личного аккаунта
+              или от лица одного из ваших магазинов.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <button
+              onClick={() => setPostAsShopId(null)}
+              className="w-full flex items-center gap-3 rounded-xl p-4 text-left transition cursor-pointer bg-gray-100 hover:bg-gray-200"
+            >
+              <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-200 shrink-0">
+                <CircleUser className="w-5 h-5 text-gray-500" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-800">Личный профиль</div>
+                {userName && <div className="text-sm text-gray-500">{userName}</div>}
+              </div>
+              {postAsShopId === null && (
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary shrink-0">
+                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                </span>
+              )}
+            </button>
+
+            {shops.map((shop) => {
+              const active = postAsShopId === shop.id;
+              return (
+                <button
+                  key={shop.id}
+                  onClick={() => setPostAsShopId(shop.id)}
+                  className="w-full flex items-center gap-3 rounded-xl p-4 text-left transition cursor-pointer bg-gray-100 hover:bg-gray-200"
+                >
+                  <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-200 shrink-0 overflow-hidden">
+                    {shop.bannerUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`${MEDIA_BASE}${shop.bannerUrl}`}
+                        alt={shop.shopName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Store className="w-5 h-5 text-gray-500" />
+                    )}
+                  </span>
+                  <div className="flex-1 min-w-0 font-medium text-gray-800 truncate">
+                    Магазин - {shop.shopName}
+                  </div>
+                  {active && (
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary shrink-0">
+                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* w-full on mobile, w-2/3 from sm: up — same fix as ProductTitle:
+          the old fixed w-2/3 was too narrow on phones. */}
       <input
         value={contactName}
         onChange={(e) => setContactName(e.target.value)}
         placeholder="Имя"
         className="
-          w-2/3 mb-4
+          w-full sm:w-2/3 mb-4
           bg-gray-100 rounded-xl
           px-4 py-3 text-lg
           outline-none
@@ -72,7 +163,7 @@ export default function ProfileContactsSection({
         value={contactPhone}
         onChange={handlePhoneChange}
         className="
-          w-2/3 mb-6
+          w-full sm:w-2/3 mb-6
           bg-gray-100 rounded-xl
           px-4 py-3 text-lg
           outline-none
@@ -93,7 +184,7 @@ export default function ProfileContactsSection({
         className={cn(
           "flex items-center justify-between",
           "bg-gray-100 rounded-xl p-4 cursor-pointer",
-          "hover:bg-gray-200 transition"
+          "hover:bg-gray-200 transition",
         )}
       >
         <div>
@@ -109,7 +200,7 @@ export default function ProfileContactsSection({
           <Switch
             checked={enableTelegram}
             onCheckedChange={setEnableTelegram}
-            className="scale-140"
+            className="scale-140 cursor-pointer"
           />
         </div>
       </div>
