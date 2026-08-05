@@ -15,6 +15,7 @@ export interface ProductFilterParams {
   priceFrom?: number;
   priceTo?: number;
   currency?: "USD" | "UZS";
+  type?: "SALE" | "PURCHASE";
   // Sent to the backend as a single comma-separated string (matching the
   // zod schema's `.split(',')` fallback path) rather than repeated query
   // params, since axios' default array serialization format doesn't line

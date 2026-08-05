@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { api } from "@/helpers/api"
 import { Category } from "@/types/category"
+import { localized } from "@/lib/localized"
+import { useLocaleRegion } from "@/hooks/useLocaleRegion"
 
 interface Props {
   rootCategories: Category[]
@@ -17,14 +20,10 @@ const MEDIA_BASE =
 
 const COLLAPSED_COUNT = 5
 
-// Same visual component as the homepage's CategoriesMegaMenu, but adapted
-// for selection: intermediate levels (root categories, second-level
-// groups) only navigate deeper — they can't be picked as the final
-// category. Only true leaves (nothing under them) call onSelect. The one
-// exception is a level that genuinely has no children of its own — a root
-// or group with nothing under it is itself the leaf, so it's selectable
-// directly rather than being a dead end with nothing to click.
 export default function CategorySelectMenu({ rootCategories, onSelect, onClose }: Props) {
+  const { locale } = useLocaleRegion()
+  const t = useTranslations("categoryMenu")
+
   const [allCategories, setAllCategories] = useState<Category[] | null>(null)
   const [activeRootId, setActiveRootId] = useState<string | null>(
     rootCategories[0]?.id ?? null,
@@ -34,12 +33,6 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
   const [mobileStack, setMobileStack] = useState<Category[]>([])
   const [mobileQuery, setMobileQuery] = useState("")
 
-  // Whether the full parent→children map has arrived yet. Used ONLY by
-  // the mobile root-level list below, to dim it and ignore taps until we
-  // actually know which categories have children — before this, tapping
-  // a root category that DOES have children would be misread as a leaf
-  // (hasChildren() has nothing to check against yet) and would
-  // immediately select+close instead of drilling in.
   const categoriesLoaded = allCategories !== null
 
   useEffect(() => {
@@ -101,8 +94,6 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
     onClose()
   }
 
-  // A root category click either drills into it (has children) or selects
-  // it directly (it's already a leaf).
   const handleRootClick = (cat: Category) => {
     if (hasChildren(cat.id)) {
       setActiveRootId(cat.id)
@@ -117,14 +108,10 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
     : rootCategories
   const filteredMobileList = mobileQuery.trim()
     ? mobileList.filter((c) =>
-        c.name.toLowerCase().includes(mobileQuery.trim().toLowerCase()),
+        localized(c, locale).toLowerCase().includes(mobileQuery.trim().toLowerCase()),
       )
     : mobileList
 
-  // Only the ROOT screen (mobileParent === null) needs this: it's the
-  // only place that renders category buttons before we necessarily know
-  // categoriesLoaded is true (deeper levels already wait behind the
-  // MenuSkeleton branch below). Dim + ignore taps there until loaded.
   const mobileRootPending = !mobileParent && !categoriesLoaded
 
   return (
@@ -144,28 +131,31 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
         </button>
 
         <div className="w-80 shrink-0 border-r border-gray-100 overflow-y-auto py-3">
-          {rootCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onMouseEnter={() => hasChildren(cat.id) && setActiveRootId(cat.id)}
-              onClick={() => handleRootClick(cat)}
-              className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
-                activeRootId === cat.id ? "bg-gray-100" : "hover:bg-gray-50"
-              }`}
-            >
-              <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
-                <img
-                  src={`${MEDIA_BASE}/public${cat.imageUrl}`}
-                  alt={cat.name}
-                  className="w-12 h-12 object-contain"
-                />
-              </span>
-              <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-                {cat.name}
-              </span>
-              <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
-            </button>
-          ))}
+          {rootCategories.map((cat) => {
+            const name = localized(cat, locale)
+            return (
+              <button
+                key={cat.id}
+                onMouseEnter={() => hasChildren(cat.id) && setActiveRootId(cat.id)}
+                onClick={() => handleRootClick(cat)}
+                className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
+                  activeRootId === cat.id ? "bg-gray-100" : "hover:bg-gray-50"
+                }`}
+              >
+                <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
+                  <img
+                    src={`${MEDIA_BASE}/public${cat.imageUrl}`}
+                    alt={name}
+                    className="w-12 h-12 object-contain"
+                  />
+                </span>
+                <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
+                  {name}
+                </span>
+                <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
+              </button>
+            )
+          })}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -173,19 +163,16 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
             <MenuSkeleton />
           ) : (
             <>
-              {/* The active root's own name is only a clickable "select" target
-                  when it has no children of its own (it IS the leaf). Otherwise
-                  it's just a heading — the actual choices are the groups below. */}
               {activeRoot && !hasChildren(activeRoot.id) ? (
                 <button
                   onClick={() => choose(activeRoot)}
                   className="flex items-center gap-1.5 text-2xl font-medium leading-none mb-5 cursor-pointer hover:text-primary transition-colors"
                 >
-                  {activeRoot.name}
+                  {localized(activeRoot, locale)}
                 </button>
               ) : (
                 <h3 className="text-2xl font-medium leading-none mb-5 text-black/85">
-                  {activeRoot?.name}
+                  {activeRoot ? localized(activeRoot, locale) : ""}
                 </h3>
               )}
 
@@ -198,6 +185,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
                     ? grandchildren
                     : grandchildren.slice(0, COLLAPSED_COUNT)
                   const hiddenCount = grandchildren.length - visibleChildren.length
+                  const groupName = localized(group, locale)
 
                   return (
                     <div key={group.id} className="break-inside-avoid mb-7">
@@ -206,11 +194,11 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
                           onClick={() => choose(group)}
                           className="flex items-center gap-1 font-normal text-[17px] text-black/85 hover:text-primary mb-2 cursor-pointer"
                         >
-                          {group.name}
+                          {groupName}
                         </button>
                       ) : (
                         <div className="font-normal text-[17px] text-black/85 mb-2">
-                          {group.name}
+                          {groupName}
                         </div>
                       )}
 
@@ -222,7 +210,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
                                 onClick={() => choose(sub)}
                                 className="text-[16px] text-black/60 hover:text-primary hover:underline cursor-pointer text-left"
                               >
-                                {sub.name}
+                                {localized(sub, locale)}
                               </button>
                             </li>
                           ))}
@@ -234,7 +222,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
                           onClick={() => toggleGroup(group.id)}
                           className="flex items-center gap-1 text-[15px] text-primary mt-2 cursor-pointer"
                         >
-                          Ещё {hiddenCount}
+                          {t("showMore", { count: hiddenCount })}
                           <ChevronDown className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -261,7 +249,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
             <span className="w-9 h-9 shrink-0" />
           )}
           <h2 className="flex-1 text-lg font-normal truncate">
-            {mobileParent ? mobileParent.name : "Выберите категорию"}
+            {mobileParent ? localized(mobileParent, locale) : t("selectCategory")}
           </h2>
           <button
             onClick={onClose}
@@ -277,7 +265,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
             <input
               value={mobileQuery}
               onChange={(e) => setMobileQuery(e.target.value)}
-              placeholder="Найти"
+              placeholder={t("search")}
               className="w-full bg-gray-100 rounded-xl pl-9 pr-3 py-2.5 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
@@ -290,16 +278,10 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
             </div>
           ) : (
             <>
-              {/* No "select the current level itself" shortcut anymore —
-                  intermediate levels (with children) are navigation-only.
-                  On the ROOT screen, while the category tree is still
-                  loading (mobileRootPending), the whole list is dimmed and
-                  inert — no native `disabled`, just opacity + pointer-events
-                  + a JS guard in the click handler, so a tap in that window
-                  visibly does nothing instead of misfiring a selection. */}
               {filteredMobileList.map((cat) => {
                 const catHasChildren = hasChildren(cat.id)
                 const showIcon = mobileStack.length === 0
+                const name = localized(cat, locale)
 
                 const content = (
                   <>
@@ -307,13 +289,13 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
                       <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
                         <img
                           src={`${MEDIA_BASE}/public${cat.imageUrl}`}
-                          alt={cat.name}
+                          alt={name}
                           className="w-12 h-12 object-contain"
                         />
                       </span>
                     )}
                     <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-                      {cat.name}
+                      {name}
                     </span>
                     {catHasChildren && (
                       <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
@@ -341,7 +323,7 @@ export default function CategorySelectMenu({ rootCategories, onSelect, onClose }
 
               {filteredMobileList.length === 0 && (
                 <p className="px-4 py-6 text-center text-black/40 text-[15px]">
-                  Ничего не найдено
+                  {t("noResults")}
                 </p>
               )}
             </>

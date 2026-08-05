@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Heart,
   Megaphone,
@@ -12,19 +13,22 @@ import {
   FileText,
   LogOut,
 } from "lucide-react";
-import { logoutUser } from "@/services/auth.service";
 
 export default function ProfileHeaderDropdown({
   onClose,
   onOpenLanguage,
+  onRequestLogout,
 }: {
   onClose: () => void;
   onOpenLanguage: () => void;
+  onRequestLogout: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const router = useRouter();
+  const pathname = usePathname();
+  const t = useTranslations("profileDropdown");
 
-  // Click-outside-to-close, standard dropdown pattern.
+  const locale = pathname.split("/")[1] || "ru";
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -35,12 +39,6 @@ export default function ProfileHeaderDropdown({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  const handleLogout = async () => {
-    onClose();
-    await logoutUser();
-    router.push("/");
-  };
-
   const itemClass =
     "flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition text-[15px] text-gray-800";
 
@@ -50,24 +48,24 @@ export default function ProfileHeaderDropdown({
       className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-100 rounded-2xl overflow-hidden z-50"
     >
       <div className="py-1">
-        <Link href="/profile/favorites" onClick={onClose} className={itemClass}>
+        <Link href={`/${locale}/profile/favorites`} onClick={onClose} className={itemClass}>
           <Heart className="w-4.5 h-4.5 text-gray-500" />
-          Избранное
+          {t("favorites")}
         </Link>
-        <Link href="/profile/listings" onClick={onClose} className={itemClass}>
+        <Link href={`/${locale}/profile/listings`} onClick={onClose} className={itemClass}>
           <Megaphone className="w-4.5 h-4.5 text-gray-500" />
-          Мои объявления
+          {t("myListings")}
         </Link>
-        <Link href="/profile/messages" onClick={onClose} className={itemClass}>
+        <Link href={`/${locale}/profile/messages`} onClick={onClose} className={itemClass}>
           <MessageSquare className="w-4.5 h-4.5 text-gray-500" />
-          Сообщения
+          {t("messages")}
         </Link>
       </div>
 
       <div className="border-t border-gray-100 py-1">
-        <Link href="/profile/business" onClick={onClose} className={itemClass}>
+        <Link href={`/${locale}/profile/business`} onClick={onClose} className={itemClass}>
           <Building2 className="w-4.5 h-4.5 text-gray-500" />
-          BizTorg для бизнеса
+          {t("forBusiness")}
         </Link>
         <button
           onClick={() => {
@@ -77,18 +75,24 @@ export default function ProfileHeaderDropdown({
           className={`${itemClass} w-full cursor-pointer text-left`}
         >
           <Languages className="w-4.5 h-4.5 text-gray-500" />
-          Смена языка
+          {t("changeLanguage")}
         </button>
-        <Link href="/legal" onClick={onClose} className={itemClass}>
+        <Link href={`/${locale}/legal`} onClick={onClose} className={itemClass}>
           <FileText className="w-4.5 h-4.5 text-gray-500" />
-          Правила площадки
+          {t("rules")}
         </Link>
       </div>
 
       <div className="border-t border-gray-100 py-1">
-        <button onClick={handleLogout} className={`${itemClass} w-full cursor-pointer text-left`}>
+        <button
+          onClick={() => {
+            onClose();
+            onRequestLogout();
+          }}
+          className={`${itemClass} w-full cursor-pointer text-left`}
+        >
           <LogOut className="w-4.5 h-4.5 text-gray-500" />
-          Выйти
+          {t("logout")}
         </button>
       </div>
     </div>

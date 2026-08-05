@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { StarIcon, UserIcon } from "@phosphor-icons/react";
 import { getShopRatings } from "@/services/rating.service";
 import { ProductRating } from "@/types/responses/rating.response";
+import { formatReviewDate } from "@/lib/formatReviewDate";
 
 const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
 
-// Same "N★ ██████░░░░ 12" row as UserRatingsSection — black bar, gold
-// stars, count on the right.
 function RatingBarRow({ starLevel, count, total }: { starLevel: number; count: number; total: number }) {
   const pct = total > 0 ? (count / total) * 100 : 0;
 
@@ -32,10 +33,10 @@ function RatingBarRow({ starLevel, count, total }: { starLevel: number; count: n
   );
 }
 
-function ReviewCard({ review }: { review: ProductRating }) {
+function ReviewCard({ review, locale }: { review: ProductRating; locale: string }) {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-5">
-      <Link href={`/user/${review.rater.id}`} className="flex items-start gap-3 mb-3 group">
+      <Link href={`/${locale}/user/${review.rater.id}`} className="flex items-start gap-3 mb-3 group">
         <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
           <UserIcon weight="regular" className="w-7 h-7 text-gray-400" />
         </div>
@@ -43,7 +44,7 @@ function ReviewCard({ review }: { review: ProductRating }) {
           <div className="flex items-center justify-between gap-3">
             <span className="font-semibold text-gray-900 text-base group-hover:underline">{review.rater.name}</span>
             <span className="text-sm text-gray-400 shrink-0">
-              {new Date(review.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+              {formatReviewDate(review.createdAt, locale)}
             </span>
           </div>
           <div className="flex items-center gap-0.5 mt-1">
@@ -61,7 +62,7 @@ function ReviewCard({ review }: { review: ProductRating }) {
       {review.comment && <p className="text-base text-gray-800 mb-3">{review.comment}</p>}
 
       <Link
-        href={`/obyavlenie/${review.product.id}`}
+        href={`/${locale}/obyavlenie/${review.product.id}`}
         className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition rounded-xl p-3"
       >
         {review.product.mainImageUrl && (
@@ -79,6 +80,10 @@ function ReviewCard({ review }: { review: ProductRating }) {
 }
 
 export default function ShopRatingsSection({ shopId }: { shopId: string }) {
+  const pathname = usePathname();
+  const locale = pathname.split("/")[1] || "ru";
+  const t = useTranslations("shopRatings");
+
   const [data, setData] = useState<{ averageRating: number | null; totalRatings: number; ratings: ProductRating[] } | null>(
     null,
   );
@@ -118,12 +123,12 @@ export default function ShopRatingsSection({ shopId }: { shopId: string }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Отзывы о товарах магазина</h2>
+      <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">{t("title")}</h2>
 
       <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6">
         <p className="text-4xl font-bold text-gray-900">{(data.averageRating ?? 0).toFixed(1)}</p>
         <p className="text-base text-gray-500 mb-6">
-          {data.totalRatings} {data.totalRatings === 1 ? "отзыв" : "отзывов"}
+          {t("reviewCount", { count: data.totalRatings })}
         </p>
 
         <div className="space-y-3">
@@ -134,7 +139,7 @@ export default function ShopRatingsSection({ shopId }: { shopId: string }) {
       </div>
 
       {data.ratings.map((review) => (
-        <ReviewCard key={review.id} review={review} />
+        <ReviewCard key={review.id} review={review} locale={locale} />
       ))}
     </div>
   );

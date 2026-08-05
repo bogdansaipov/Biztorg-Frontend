@@ -2,45 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Heart, MessageCircle, Plus, Search, User } from "lucide-react";
 import { useAuthModal } from "@/context/AuthModalContext";
 import { useAuthStore } from "@/stores/auth.store";
+import { useLocaleRegion } from "@/hooks/useLocaleRegion";
+import InDevelopmentModal from "@/customComponents/Modals/InDevelopmentModal";
 
 export default function MobileBottomNav() {
   const { open } = useAuthModal();
   const router = useRouter();
+  const t = useTranslations("header");
 
-  // Same two-source auth check as MainHeader: storeUser reacts instantly
-  // to a login/logout happening in this session; storedUser covers a
-  // fresh page load, since the store doesn't rehydrate from localStorage
-  // on its own.
+  const { locale, region } = useLocaleRegion();
+
   const storeUser = useAuthStore((s) => s.user);
-  const [storedUser, setStoredUser] = useState<{ id: string } | null>(null);
+  const isLoggedIn = Boolean(storeUser);
 
-  useEffect(() => {
-    const raw = localStorage.getItem("user");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed?.id) setStoredUser(parsed);
-    } catch (err) {
-      console.error("Failed to parse stored user", err);
-    }
-  }, []);
+  const [messagesInfoOpen, setMessagesInfoOpen] = useState(false);
 
-  const isLoggedIn = Boolean(storeUser ?? storedUser);
-
-  // Поиск doesn't need a login check — it's just the site's home/search
-  // entry point, open to anyone.
   const handleSearchClick = () => {
-    router.push("/");
+    router.push(`/${locale}/${region}`);
   };
 
-  // Same "logged in? navigate : open the auth modal" gate as
-  // handleSellClick/handleAccountClick below.
   const handleFavoritesClick = () => {
     if (isLoggedIn) {
-      router.push("/profile/favorites");
+      router.push(`/${locale}/profile/favorites`);
     } else {
       open();
     }
@@ -48,7 +35,7 @@ export default function MobileBottomNav() {
 
   const handleSellClick = () => {
     if (isLoggedIn) {
-      router.push("/obyavlenie/create");
+      router.push(`/${locale}/obyavlenie/create`);
     } else {
       open();
     }
@@ -56,11 +43,7 @@ export default function MobileBottomNav() {
 
   const handleAccountClick = () => {
     if (isLoggedIn) {
-      // On mobile, just navigate — /profile itself becomes the menu
-      // screen here (ProfileLayout shows the sidebar-as-menu at the root
-      // route), so there's no need for a separate popover like the
-      // desktop header's dropdown.
-      router.push("/profile");
+      router.push(`/${locale}/profile`);
     } else {
       open();
     }
@@ -80,7 +63,7 @@ export default function MobileBottomNav() {
           className="flex flex-col items-center gap-0.5 py-2.5 text-black/60 hover:text-black transition"
         >
           <Search className="w-5.5 h-5.5" />
-          <span className="text-[11px] font-medium">Поиск</span>
+          <span className="text-[11px] font-medium">{t("search")}</span>
         </button>
 
         <button
@@ -88,11 +71,9 @@ export default function MobileBottomNav() {
           className="flex flex-col items-center gap-0.5 py-2.5 text-black/60 hover:text-black transition"
         >
           <Heart className="w-5.5 h-5.5" />
-          <span className="text-[11px] font-medium">Избранное</span>
+          <span className="text-[11px] font-medium">{t("favorites")}</span>
         </button>
 
-        {/* Elevated center action, matching the floating "sell" button
-            pattern popular in marketplace apps (Avito, OLX, Uber-style tab bars). */}
         <div className="flex justify-center">
           <button
             onClick={handleSellClick}
@@ -102,12 +83,12 @@ export default function MobileBottomNav() {
           </button>
         </div>
 
-        {/* Сообщения — not wired up yet, no chat/messages page exists to
-            navigate to. Left inert on purpose rather than pointed at a
-            placeholder route. */}
-        <button className="flex flex-col items-center gap-0.5 py-2.5 text-black/60 hover:text-black transition">
+        <button
+          onClick={() => setMessagesInfoOpen(true)}
+          className="flex flex-col items-center gap-0.5 py-2.5 text-black/60 hover:text-black transition"
+        >
           <MessageCircle className="w-5.5 h-5.5" />
-          <span className="text-[11px] font-medium">Сообщения</span>
+          <span className="text-[11px] font-medium">{t("messages")}</span>
         </button>
 
         <button
@@ -115,9 +96,11 @@ export default function MobileBottomNav() {
           className="flex flex-col items-center gap-0.5 py-2.5 text-black/60 hover:text-black transition"
         >
           <User className="w-5.5 h-5.5" />
-          <span className="text-[11px] font-medium">{isLoggedIn ? "Профиль" : "Войти"}</span>
+          <span className="text-[11px] font-medium">{isLoggedIn ? t("profile") : t("login")}</span>
         </button>
       </div>
+
+      <InDevelopmentModal open={messagesInfoOpen} onClose={() => setMessagesInfoOpen(false)} />
     </nav>
   );
 }

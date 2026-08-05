@@ -2,20 +2,34 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { Region } from "@/types/region/region"
+import { localized } from "@/lib/localized"
+import { useLocaleRegion } from "@/hooks/useLocaleRegion"
 
 interface Props {
-  regions: Region[] // full flat list (all viloyats + districts)
-  onSelect: (region: Region) => void
+  regions: Region[]
+  selectedRegionId?: string | null
+  onSelect: (region: Region | null) => void
   onClose: () => void
 }
 
-// Same drill-down pattern as CategorySelectMenu, including the leaf-only
-// selection rule: a viloyat with districts under it is navigation-only —
-// clicking it drills into its districts rather than selecting the
-// viloyat itself. Only an actual leaf (a viloyat with no districts, or a
-// district itself) can be picked.
-export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) {
+function RegionRadio({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition ${
+        active ? "bg-black border-black" : "border-gray-300"
+      }`}
+    >
+      {active && <span className="w-2 h-2 rounded-full bg-white" />}
+    </span>
+  )
+}
+
+export default function RegionSelectMenu({ regions, selectedRegionId, onSelect, onClose }: Props) {
+  const { locale } = useLocaleRegion()
+  const t = useTranslations("regionMenu")
+
   const roots = useMemo(
     () => regions.filter((r) => !(r as unknown as { parentId?: string }).parentId),
     [regions],
@@ -57,7 +71,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
   const activeRoot = roots.find((r) => r.id === activeRootId)
   const districts = activeRootId ? childrenByParent.get(activeRootId) ?? [] : []
 
-  const choose = (region: Region) => {
+  const choose = (region: Region | null) => {
     onSelect(region)
     onClose()
   }
@@ -82,11 +96,15 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
   const mobileParent = mobileStack[mobileStack.length - 1] ?? null
   const mobileList = mobileParent ? childrenByParent.get(mobileParent.id) ?? [] : roots
   const filteredMobileList = mobileQuery.trim()
-    ? mobileList.filter((r) => r.name.toLowerCase().includes(mobileQuery.trim().toLowerCase()))
+    ? mobileList.filter((r) => localized(r, locale).toLowerCase().includes(mobileQuery.trim().toLowerCase()))
     : mobileList
 
+  const showAllRegionsOption = !mobileParent && !mobileQuery.trim()
+
+  const selectedRegionObj = selectedRegionId ? regions.find((r) => r.id === selectedRegionId) ?? null : null
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center md:pt-20 md:px-4">
+    <div className="fixed inset-0 z-[999999] flex items-start justify-center md:pt-20 md:px-4">
       <div className="hidden md:block absolute inset-0 bg-black/40 cursor-pointer" onClick={onClose} />
 
       {/* ---------- Desktop / tablet: side-by-side panes (viloyat -> district) ---------- */}
@@ -99,6 +117,26 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
         </button>
 
         <div className="w-72 shrink-0 border-r border-gray-100 overflow-y-auto py-3">
+          <button
+            onClick={() => choose(null)}
+            className={`w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer hover:bg-gray-50 text-black/85 ${
+              selectedRegionObj ? "border-b border-gray-100" : "border-b border-gray-100 mb-1"
+            } ${!selectedRegionObj ? "font-semibold" : "font-medium"}`}
+          >
+            <span className="text-[16px]">{t("allRegions")}</span>
+            <RegionRadio active={!selectedRegionObj} />
+          </button>
+
+          {selectedRegionObj && (
+            <button
+              onClick={() => choose(selectedRegionObj)}
+              className="w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer hover:bg-gray-50 font-semibold text-black/85 border-b border-gray-100 mb-1"
+            >
+              <span className="text-[16px] truncate">{localized(selectedRegionObj, locale)}</span>
+              <RegionRadio active />
+            </button>
+          )}
+
           {roots.map((region) => (
             <button
               key={region.id}
@@ -109,7 +147,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
               }`}
             >
               <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-                {region.name}
+                {localized(region, locale)}
               </span>
               <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
             </button>
@@ -117,19 +155,33 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Same rule as CategorySelectMenu: the active viloyat's name is
-              only clickable/selectable when it has no districts of its own. */}
           {activeRoot && districts.length === 0 ? (
             <button
               onClick={() => choose(activeRoot)}
               className="flex items-center gap-1.5 text-2xl font-medium leading-none mb-5 cursor-pointer hover:text-primary transition-colors"
             >
-              {activeRoot.name}
+              {localized(activeRoot, locale)}
             </button>
           ) : (
             <h3 className="text-2xl font-medium leading-none mb-5 text-black/85">
-              {activeRoot?.name}
+              {activeRoot ? localized(activeRoot, locale) : ""}
             </h3>
+          )}
+
+          {activeRoot && districts.length > 0 && (
+            <button
+              onClick={() => choose(activeRoot)}
+              className="w-full flex items-center justify-between gap-3 text-left mb-4 pb-4 border-b border-gray-100 cursor-pointer"
+            >
+              <span
+                className={`text-[16px] text-black/85 ${
+                  selectedRegionId === activeRoot.id ? "font-semibold" : "font-normal"
+                }`}
+              >
+                {t("wholeRegion")}
+              </span>
+              <RegionRadio active={selectedRegionId === activeRoot.id} />
+            </button>
           )}
 
           {districts.length > 0 && (
@@ -140,7 +192,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
                   onClick={() => choose(district)}
                   className="block w-full text-left text-[16px] text-black/70 hover:text-primary hover:underline cursor-pointer mb-2 break-inside-avoid"
                 >
-                  {district.name}
+                  {localized(district, locale)}
                 </button>
               ))}
             </div>
@@ -162,7 +214,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
             <span className="w-9 h-9 shrink-0" />
           )}
           <h2 className="flex-1 text-lg font-normal truncate">
-            {mobileParent ? mobileParent.name : "Выберите регион"}
+            {mobileParent ? localized(mobileParent, locale) : t("selectRegion")}
           </h2>
           <button
             onClick={onClose}
@@ -178,15 +230,51 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
             <input
               value={mobileQuery}
               onChange={(e) => setMobileQuery(e.target.value)}
-              placeholder="Найти"
+              placeholder={t("search")}
               className="w-full bg-gray-100 rounded-xl pl-9 pr-3 py-2.5 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
-          {/* No "select the current level itself" shortcut — intermediate
-              levels (with children) are navigation-only, same as categories. */}
+          {showAllRegionsOption && (
+            <button
+              onClick={() => choose(null)}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer text-black/85 ${
+                selectedRegionObj ? "border-b border-gray-100" : "border-b border-gray-100 mb-1"
+              } ${!selectedRegionObj ? "font-semibold" : "font-medium"}`}
+            >
+              <span className="text-[16px]">{t("allRegions")}</span>
+              <RegionRadio active={!selectedRegionObj} />
+            </button>
+          )}
+
+          {showAllRegionsOption && selectedRegionObj && (
+            <button
+              onClick={() => choose(selectedRegionObj)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer font-semibold text-black/85 border-b border-gray-100 mb-1"
+            >
+              <span className="text-[16px] truncate">{localized(selectedRegionObj, locale)}</span>
+              <RegionRadio active />
+            </button>
+          )}
+
+          {mobileParent && !mobileQuery.trim() && (
+            <button
+              onClick={() => choose(mobileParent)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100 mb-1"
+            >
+              <span
+                className={`text-[16px] text-black/85 ${
+                  selectedRegionId === mobileParent.id ? "font-semibold" : "font-normal"
+                }`}
+              >
+                {t("wholeRegion")}
+              </span>
+              <RegionRadio active={selectedRegionId === mobileParent.id} />
+            </button>
+          )}
+
           {filteredMobileList.map((region) => {
             const regionHasChildren = hasChildren(region.id)
             return (
@@ -196,7 +284,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-                  {region.name}
+                  {localized(region, locale)}
                 </span>
                 {regionHasChildren && <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />}
               </button>
@@ -205,7 +293,7 @@ export default function RegionSelectMenu({ regions, onSelect, onClose }: Props) 
 
           {filteredMobileList.length === 0 && (
             <p className="px-4 py-6 text-center text-black/40 text-[15px]">
-              Ничего не найдено
+              {t("noResults")}
             </p>
           )}
         </div>

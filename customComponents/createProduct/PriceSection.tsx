@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Switch } from "@/components/ui/switch";
 import { Currency } from "@/enums/CurrencyEnum";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ export default function PriceSection({
   isUrgent,
   setIsUrgent,
 }: Props) {
+  const t = useTranslations("createProduct");
+
   const formatPrice = (value: number) =>
     value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
@@ -42,8 +45,8 @@ export default function PriceSection({
 
   return (
     <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-9 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">
-        Условия сделки
+      <h2 className="text-lg sm:text-2xl font-bold mb-4 text-gray-700">
+        {t("dealTermsHeading")}
       </h2>
 
       <div
@@ -62,9 +65,9 @@ export default function PriceSection({
         "
       >
         <div className="flex items-center gap-4">
-          <span className="text-lg font-medium text-black/80">
-            Отдам даром
-          </span>
+          <span className="text-base sm:text-lg font-medium text-black/80">
+  {t("giveAwayFree")}
+</span>
         </div>
 
         <div onClick={(e) => e.stopPropagation()}>
@@ -86,18 +89,14 @@ export default function PriceSection({
         )}
       >
         <div className="pt-4 space-y-4">
-          <h3 className="text-xl font-semibold text-gray-800">
-            Цена
+          <h3 className="text-lg sm:text-2xl font-bold mb-4 text-gray-700">
+            {t("priceHeading")}
           </h3>
 
-          {/* flex-wrap so on narrow phones the currency buttons drop to
-              their own line instead of squeezing/overflowing next to the
-              price input. min-w-0 on the input lets it actually shrink
-              inside the flex row instead of forcing overflow itself. */}
           <div className="flex flex-wrap items-center gap-3">
             <input
               inputMode="numeric"
-              placeholder="Укажите цену"
+              placeholder={t("pricePlaceholder")}
               value={price ? formatPrice(price) : ""}
               onChange={(e) => handlePriceChange(e.target.value)}
               className="flex-1 min-w-[160px] bg-gray-100 rounded-xl px-4 py-3 text-lg outline-none"
@@ -115,7 +114,7 @@ export default function PriceSection({
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300",
                   )}
                 >
-                  {c === Currency.UZS ? "сум" : "у.е."}
+                  {c === Currency.UZS ? t("currencyUzs") : t("currencyUsd")}
                 </button>
               ))}
             </div>
@@ -135,9 +134,9 @@ export default function PriceSection({
             "
           >
             <div className="flex items-center gap-4">
-              <span className="text-lg font-medium text-black/80">
-                Продам срочно. Есть торг
-              </span>
+            <span className="text-base sm:text-lg font-medium text-black/80">
+  {t("urgentSale")}
+</span>
             </div>
 
             <div onClick={(e) => e.stopPropagation()}>

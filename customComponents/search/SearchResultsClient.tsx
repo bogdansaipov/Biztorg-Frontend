@@ -5,8 +5,16 @@ import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, ChevronLeft, Check, X, SlidersHorizontal } from "lucide-react";
-import { NavigationArrowIcon } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  X,
+  SlidersHorizontal,
+} from "lucide-react";
+import { NavigationArrowIcon, Lightning, Storefront, ArrowsLeftRight } from "@phosphor-icons/react";
 import { filterProducts } from "@/services/product.service";
 import { getParentCategories } from "@/services/category.service";
 import { Category } from "@/types/category";
@@ -17,42 +25,65 @@ import { Currency } from "@/enums/CurrencyEnum";
 import { ProductSorting, ProductsFilterPagination } from "@/types/responses/product-filter.response";
 import { Region } from "@/types/region/region";
 import { getAncestorChain, slugPathFor } from "@/lib/categorySlug";
-import { regionInPrepositional } from "@/lib/ruDeclension";
+import { getLocationText } from "@/lib/locationText";
+import { localized, localizedValue } from "@/lib/localized";
+import { announcementWord } from "@/lib/pluralize";
+import { formatProductDate } from "@/lib/formatDate";
+import { useLocaleRegion } from "@/hooks/useLocaleRegion";
+import { DEFAULT_REGION_SLUG, resolveRegionFilterParams, setRegionCookie } from "@/lib/region";
 import FavoriteButton from "@/components/ui/FavoriteButton";
 import CircularLoader from "@/components/ui/CircularLoader";
 import CategorySelectMenu from "@/customComponents/createProduct/CategorySelectMenu";
 import RegionSelectMenu from "@/customComponents/createProduct/RegionSelectMenu";
 
 const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
-const PAGE_LIMIT = 20;
-// How long the dropdown stays open after the mouse leaves before it
-// actually closes — enough to cross the small gap between the pill and
-// its panel without the panel slamming shut mid-move.
 const HOVER_CLOSE_DELAY = 200;
 
-const SORT_LABELS: Record<string, string> = {
-  "": "Рекомендуемые",
-  NEW: "Сначала новые",
-  CHEAP: "Сначала дешевле",
-  EXPENSIVE: "Сначала дороже",
-};
-
-// Correct Russian plural form for a count — "1 объявление", "2
-// объявления", "5 объявлений", and back around correctly at 21, 22, 25,
-// 101, 111, etc. (the "teens" 11–14 are always the "many" bucket
-// regardless of their last digit, which is the part a naive n % 10
-// switch gets wrong).
-function pluralizeRu(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return few;
-  return many;
+interface ProductBadge {
+  key: string;
+  icon: typeof Lightning;
+  label: string;
 }
 
-const announcementWord = (n: number) => pluralizeRu(n, "объявление", "объявления", "объявлений");
+interface BadgeLabels {
+  urgent: string;
+  shop: string;
+  purchase: string;
+}
 
-// Shared pill sizing/coloring — smaller on mobile, full size from lg: up.
+function getProductBadges(product: Product, labels: BadgeLabels): ProductBadge[] {
+  const badges: ProductBadge[] = [];
+  if (product.isUrgent) badges.push({ key: "urgent", icon: Lightning, label: labels.urgent });
+  if (product.shopId) badges.push({ key: "shop", icon: Storefront, label: labels.shop });
+  if (product.type === "PURCHASE") badges.push({ key: "purchase", icon: ArrowsLeftRight, label: labels.purchase });
+  return badges;
+}
+
+function ProductCardBadges({ product, labels }: { product: Product; labels: BadgeLabels }) {
+  const badges = getProductBadges(product, labels);
+  if (badges.length === 0) return null;
+
+  const [primary, ...rest] = badges;
+
+  return (
+    <div className="absolute top-2 left-2 flex items-center gap-1">
+      <span className="flex items-center gap-1 bg-gray-900/85 text-white text-xs font-medium px-2.5 py-1 rounded-full">
+        <primary.icon className="w-3.5 h-3.5" weight="fill" />
+        {primary.label}
+      </span>
+      {rest.map((badge) => (
+        <span
+          key={badge.key}
+          title={badge.label}
+          className="flex items-center justify-center w-6 h-6 bg-gray-900/85 text-white rounded-full shrink-0"
+        >
+          <badge.icon className="w-3.5 h-3.5" weight="fill" />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const PILL_BASE =
   "flex items-center gap-1.5 px-3 py-2 text-xs lg:px-4 lg:py-2.5 lg:text-sm rounded-xl font-medium border transition cursor-pointer whitespace-nowrap select-none";
 const pillTone = (active: boolean) =>
@@ -60,11 +91,6 @@ const pillTone = (active: boolean) =>
     ? "bg-gray-800 text-white border-gray-800"
     : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
 
-// Radio-style indicator used in single-select dropdown lists (sorting,
-// currency, and the segmented seller-type control in the filters
-// drawer) — a filled black circle with a white checkmark when selected,
-// an empty gray circle otherwise. Always rendered (not conditionally) so
-// every row keeps the same layout whether or not it's the active one.
 function RadioCheck({ active }: { active: boolean }) {
   return (
     <span
@@ -77,18 +103,14 @@ function RadioCheck({ active }: { active: boolean }) {
   );
 }
 
-// Small white/translucent circle-X shown on an active pill instead of the
-// chevron — clicking it clears that specific filter immediately, without
-// opening the dropdown (stopPropagation keeps the outer pill's own
-// open/close click from also firing).
-function PillResetButton({ onReset }: { onReset: () => void }) {
+function PillResetButton({ onReset, ariaLabel }: { onReset: () => void; ariaLabel: string }) {
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
         onReset();
       }}
-      aria-label="Сбросить фильтр"
+      aria-label={ariaLabel}
       className="flex items-center justify-center w-4 h-4 rounded-full bg-white hover:bg-gray-200 transition shrink-0 cursor-pointer"
     >
       <X className="w-2.5 h-2.5 text-gray-700" strokeWidth={3} />
@@ -103,6 +125,7 @@ function FilterPill({
   onOpen,
   onClose,
   onReset,
+  resetAriaLabel,
   children,
 }: {
   label: string;
@@ -110,17 +133,14 @@ function FilterPill({
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
-  // When provided and the pill is active, a white X replaces the chevron
-  // — clicking it clears the filter directly instead of opening the panel.
   onReset?: () => void;
+  resetAriaLabel: string;
   children: React.ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Portal target — document.body isn't available during SSR, so the
-  // panel only actually renders once mounted client-side.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -198,7 +218,7 @@ function FilterPill({
       >
         {label}
         {active && onReset ? (
-          <PillResetButton onReset={onReset} />
+          <PillResetButton onReset={onReset} ariaLabel={resetAriaLabel} />
         ) : (
           <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         )}
@@ -244,12 +264,28 @@ export default function SearchResultsClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const t = useTranslations("search");
+
+  const { locale, region } = useLocaleRegion();
+
+  const SORT_LABELS: Record<string, string> = {
+    "": t("sortRecommended"),
+    NEW: t("sortNew"),
+    CHEAP: t("sortCheap"),
+    EXPENSIVE: t("sortExpensive"),
+  };
+
+  const TYPE_LABELS: Record<string, string> = {
+    "": t("typeFilterLabel"),
+    SALE: t("typeSale"),
+    PURCHASE: t("typePurchase"),
+  };
 
   const query = searchParams.get("query") ?? undefined;
-  const regionId = searchParams.get("regionId") ?? undefined;
   const priceFromParam = searchParams.get("priceFrom");
   const priceToParam = searchParams.get("priceTo");
   const currencyParam = (searchParams.get("currency") as "USD" | "UZS" | null) ?? undefined;
+  const typeParam = (searchParams.get("type") as "SALE" | "PURCHASE" | null) ?? undefined;
   const sortingParam = (searchParams.get("sorting") as ProductSorting | null) ?? undefined;
   const isUrgentParam = searchParams.get("isUrgent") === "true";
   const isFreeParam = searchParams.get("isFree") === "true";
@@ -257,6 +293,8 @@ export default function SearchResultsClient({
   const selectedAttributeValueIds = attrsParam ? attrsParam.split(",").filter(Boolean) : [];
   const sellerTypeParam = searchParams.get("sellerType");
   const selectedSellerTypes = sellerTypeParam ? sellerTypeParam.split(",").filter(Boolean) : [];
+
+  const selectedRegion = region === DEFAULT_REGION_SLUG ? null : (regions ?? []).find((r) => r.slug === region) ?? null;
 
   const updateParams = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -268,7 +306,6 @@ export default function SearchResultsClient({
     router.push(`${pathname}${qs ? `?${qs}` : ""}`);
   };
 
-  // ═══════════════════ Filters drawer ═══════════════════
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   const categoryPickerFromDrawer = useRef(false);
@@ -293,10 +330,16 @@ export default function SearchResultsClient({
       categoryPickerFromDrawer.current = false;
     }
     const qs = next.toString();
-    router.push(`/${path}${qs ? `?${qs}` : ""}`);
+    router.push(`/${locale}/${region}/category/${path}${qs ? `?${qs}` : ""}`);
   };
 
-  const selectedRegion = (regions ?? []).find((r) => r.id === regionId) ?? null;
+  const updateRegion = (newRegion: Region | null) => {
+    const targetSlug = newRegion ? newRegion.slug : DEFAULT_REGION_SLUG;
+    setRegionCookie(targetSlug);
+    const afterRegionSegments = pathname.split("/").slice(3);
+    const qs = searchParams.toString();
+    router.push(`/${locale}/${targetSlug}/${afterRegionSegments.join("/")}${qs ? `?${qs}` : ""}`);
+  };
 
   const categoryPath = category ? getAncestorChain(category, categories) : [];
   const parentCategory = categoryPath.length > 1 ? categoryPath[categoryPath.length - 2] : null;
@@ -304,7 +347,6 @@ export default function SearchResultsClient({
     ? categories.filter((c) => c.parentId === (parentCategory?.id ?? null) && c.id !== category.id)
     : [];
 
-  // ═══════════════════ Products ═══════════════════
   const [products, setProducts] = useState(initialProducts);
   const [pagination, setPagination] = useState(initialPagination);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -319,13 +361,14 @@ export default function SearchResultsClient({
     try {
       const data = await filterProducts({
         page: pagination.page + 1,
-        limit: PAGE_LIMIT,
+        limit: pagination.limit,
         query,
         categoryId: category?.id,
-        regionId,
+        ...resolveRegionFilterParams(selectedRegion, regions),
         priceFrom: priceFromParam ? Number(priceFromParam) : undefined,
         priceTo: priceToParam ? Number(priceToParam) : undefined,
         currency: currencyParam,
+        type: typeParam,
         attributeValueIds: selectedAttributeValueIds,
         sellerType: selectedSellerTypes,
         sorting: sortingParam,
@@ -341,7 +384,6 @@ export default function SearchResultsClient({
     }
   };
 
-  // ═══════════════════ UI state ═══════════════════
   const [openPill, setOpenPill] = useState<string | null>(null);
   const openPillFn = (key: string) => setOpenPill(key);
   const closePillFn = (key: string) => setOpenPill((prev) => (prev === key ? null : prev));
@@ -368,39 +410,44 @@ export default function SearchResultsClient({
     !!priceFromParam ||
     !!priceToParam ||
     !!currencyParam ||
+    !!typeParam ||
     isUrgentParam ||
     isFreeParam ||
     !!sortingParam;
 
-  const pageTitle = category
-    ? `${category.name} в ${selectedRegion ? regionInPrepositional(selectedRegion.name) : "Узбекистане"}`
-    : query
-      ? `Результаты по запросу «${query}»`
-      : "Все объявления";
+  const categoryName = category ? localized(category, locale) : "";
+  const locationText = getLocationText(selectedRegion ?? undefined, locale);
+
+ const pageTitle = category
+  ? categoryName
+  : query
+    ? t("searchResultsFor", { query })
+    : t("allListings");
 
   return (
     <div className="min-h-screen w-full bg-white">
       <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-6">
-        {/* BREADCRUMB */}
         <nav className="flex items-center gap-1.5 text-sm text-gray-500 mb-4 overflow-x-auto whitespace-nowrap hide-scrollbar">
-          <Link href="/" className="hover:text-black transition shrink-0">
-            Главная
+          <Link href={`/${locale}/${region}`} className="hover:text-black transition shrink-0">
+            {t("home")}
           </Link>
           {categoryPath.map((c) => (
             <span key={c.id} className="flex items-center gap-1.5 shrink-0">
               <ChevronRight className="w-3.5 h-3.5" />
               <button onClick={() => updateCategory(c)} className="hover:text-black transition cursor-pointer">
-                {c.name}
+                {localized(c, locale)}
               </button>
             </span>
           ))}
         </nav>
 
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{pageTitle}</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+          {category ? `${categoryName} — ${locationText}` : pageTitle}
+        </h1>
 
         {pagination.total > 0 && (
           <p className="text-sm text-gray-500 mb-4">
-            {pagination.total} {announcementWord(pagination.total)}
+            {pagination.total} {announcementWord(pagination.total, locale)}
           </p>
         )}
 
@@ -412,32 +459,62 @@ export default function SearchResultsClient({
                 onClick={() => updateCategory(c)}
                 className="shrink-0 text-sm font-medium text-gray-700 hover:text-gray-900 hover:underline transition cursor-pointer whitespace-nowrap"
               >
-                {c.name}
+                {localized(c, locale)}
               </button>
             ))}
           </div>
         )}
 
-        {/* FILTER BAR */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto hide-scrollbar flex-nowrap pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
           <button
             onClick={() => setFiltersDrawerOpen(true)}
             className={`${PILL_BASE} shrink-0 ${pillTone(anyAdvancedFilterActive)}`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            Фильтры
+            {t("filters")}
           </button>
 
           <button onClick={() => setCategoryPickerOpen(true)} className={`${PILL_BASE} shrink-0 ${pillTone(!!category)}`}>
-            {category ? category.name : "Категория"}
+            {category ? categoryName : t("category")}
             <ChevronDown className="w-4 h-4" />
           </button>
+
+          <FilterPill
+            label={TYPE_LABELS[typeParam ?? ""]}
+            active={!!typeParam}
+            open={openPill === "type"}
+            onOpen={() => openPillFn("type")}
+            onClose={() => closePillFn("type")}
+            resetAriaLabel={t("resetFilterAria")}
+            onReset={() => {
+              updateParams({ type: undefined });
+              closePillFn("type");
+            }}
+          >
+            <div className="w-full space-y-1">
+              {(["", "SALE", "PURCHASE"] as const).map((tp) => (
+                <button
+                  key={tp}
+                  onClick={() => {
+                    updateParams({ type: tp || undefined });
+                    closePillFn("type");
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-3 rounded-lg hover:bg-gray-50 cursor-pointer text-left"
+                >
+                  <span className="text-base text-gray-800">{TYPE_LABELS[tp]}</span>
+                  <RadioCheck active={(typeParam ?? "") === tp} />
+                </button>
+              ))}
+            </div>
+          </FilterPill>
 
           {attributes.map((attr) => (
             <AttributeFilterPill
               key={attr.id}
               attr={attr}
+              locale={locale}
               selectedAttributeValueIds={selectedAttributeValueIds}
+              resetAriaLabel={t("resetFilterAria")}
               open={openPill === attr.id}
               onOpen={() => openPillFn(attr.id)}
               onClose={() => closePillFn(attr.id)}
@@ -457,6 +534,14 @@ export default function SearchResultsClient({
             open={openPill === "sellerType"}
             onOpen={() => openPillFn("sellerType")}
             onClose={() => closePillFn("sellerType")}
+            resetAriaLabel={t("resetFilterAria")}
+            labels={{
+              seller: t("seller"),
+              private: t("sellerPrivate"),
+              shop: t("sellerShop"),
+              reset: t("reset"),
+              done: t("done"),
+            }}
             onCommit={(next) => {
               updateParams({ sellerType: next.length ? next.join(",") : undefined });
               closePillFn("sellerType");
@@ -464,11 +549,12 @@ export default function SearchResultsClient({
           />
 
           <FilterPill
-            label="Цена"
+            label={t("price")}
             active={!!(priceFromParam || priceToParam)}
             open={openPill === "price"}
             onOpen={() => openPillFn("price")}
             onClose={() => closePillFn("price")}
+            resetAriaLabel={t("resetFilterAria")}
             onReset={() => {
               updateParams({ priceFrom: undefined, priceTo: undefined });
               setPriceFromInput("");
@@ -480,14 +566,14 @@ export default function SearchResultsClient({
               <div className="flex items-center gap-2 mb-3">
                 <input
                   type="number"
-                  placeholder="От"
+                  placeholder={t("priceFrom")}
                   value={priceFromInput}
                   onChange={(e) => setPriceFromInput(e.target.value)}
                   className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-base outline-none"
                 />
                 <input
                   type="number"
-                  placeholder="До"
+                  placeholder={t("priceTo")}
                   value={priceToInput}
                   onChange={(e) => setPriceToInput(e.target.value)}
                   className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-base outline-none"
@@ -501,7 +587,7 @@ export default function SearchResultsClient({
                   }}
                   className="flex-1 text-gray-600 hover:text-gray-900 text-sm font-medium py-2.5 cursor-pointer transition"
                 >
-                  Сбросить
+                  {t("reset")}
                 </button>
                 <button
                   onClick={() => {
@@ -510,18 +596,19 @@ export default function SearchResultsClient({
                   }}
                   className="flex-1 bg-primary text-white text-sm font-medium py-2.5 rounded-xl cursor-pointer hover:opacity-90 transition"
                 >
-                  Готово
+                  {t("done")}
                 </button>
               </div>
             </div>
           </FilterPill>
 
           <FilterPill
-            label={currencyParam ? (currencyParam === "USD" ? "В у.е." : "В сумах") : "Валюта"}
+            label={currencyParam ? (currencyParam === "USD" ? t("currencyUSD") : t("currencyUZS")) : t("currency")}
             active={!!currencyParam}
             open={openPill === "currency"}
             onOpen={() => openPillFn("currency")}
             onClose={() => closePillFn("currency")}
+            resetAriaLabel={t("resetFilterAria")}
             onReset={() => {
               updateParams({ currency: undefined });
               closePillFn("currency");
@@ -529,9 +616,9 @@ export default function SearchResultsClient({
           >
             <div className="w-full space-y-1">
               {[
-                { value: undefined, label: "Не важно" },
-                { value: "UZS" as const, label: "В сумах" },
-                { value: "USD" as const, label: "В у.е." },
+                { value: undefined, label: t("currencyAny") },
+                { value: "UZS" as const, label: t("currencyUZS") },
+                { value: "USD" as const, label: t("currencyUSD") },
               ].map((opt) => (
                 <button
                   key={opt.label}
@@ -552,35 +639,31 @@ export default function SearchResultsClient({
             onClick={() => updateParams({ isUrgent: isUrgentParam ? undefined : "true" })}
             className={`${PILL_BASE} shrink-0 ${pillTone(isUrgentParam)}`}
           >
-            Срочно. Торг
+            {t("urgent")}
           </button>
           <button
             onClick={() => updateParams({ isFree: isFreeParam ? undefined : "true" })}
             className={`${PILL_BASE} shrink-0 ${pillTone(isFreeParam)}`}
           >
-            Отдам даром
+            {t("freeListingFilter")}
           </button>
         </div>
 
         <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-          {/* Quick location switcher — same role as birbir's "▾ Город"
-              control in this spot: shows where we're currently searching
-              and opens the same region picker as the "Все регионы" pill
-              up in the filter bar, just handier to reach right above the
-              results themselves. */}
-<button
-  onClick={() => setRegionPickerOpen(true)}
-  className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium text-gray-700 hover:text-gray-900 cursor-pointer transition"
->
-  <NavigationArrowIcon size={16} weight="fill" className="-scale-x-100 sm:w-5 sm:h-5" />
-  {selectedRegion ? selectedRegion.name : "Все регионы"}
-</button>
+          <button
+            onClick={() => setRegionPickerOpen(true)}
+            className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium text-gray-700 hover:text-gray-900 cursor-pointer transition"
+          >
+            <NavigationArrowIcon size={16} weight="fill" className="-scale-x-100 sm:w-5 sm:h-5" />
+            {selectedRegion ? localized(selectedRegion, locale) : t("allRegions")}
+          </button>
           <FilterPill
             label={SORT_LABELS[sortingParam ?? ""]}
             active={!!sortingParam}
             open={openPill === "sorting"}
             onOpen={() => openPillFn("sorting")}
             onClose={() => closePillFn("sorting")}
+            resetAriaLabel={t("resetFilterAria")}
             onReset={() => updateParams({ sorting: undefined })}
           >
             <div className="w-full space-y-1">
@@ -601,20 +684,21 @@ export default function SearchResultsClient({
           </FilterPill>
         </div>
 
-        {/* PRODUCT GRID */}
         {products.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-16">
-            По вашему запросу ничего не найдено. Попробуйте изменить фильтры.
-          </p>
+          <p className="text-gray-400 text-sm text-center py-16">{t("noResults")}</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-3">
-              {products.map((product) => {
+            <div
+              className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-3 transition-opacity duration-300 ${
+                loadingMore ? "opacity-40 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              {products.map((product, index) => {
                 const mainImage =
                   product.images.find((i: ProductImage) => i.isMain)?.imageUrl ?? "/images/default.png";
 
                 return (
-                  <Link key={product.id} href={`/obyavlenie/${product.slug}`} className="group">
+                  <Link key={product.id} href={`/${locale}/obyavlenie/${product.slug}`} className="group">
                     <div className="rounded-xl hover:bg-gray-100 transition p-2">
                       <div className="relative aspect-square rounded-2xl overflow-hidden">
                         <Image
@@ -623,25 +707,26 @@ export default function SearchResultsClient({
                           fill
                           className="object-cover"
                           unoptimized
+                          priority={index < 4}
                         />
                         <FavoriteButton
                           productId={product.id}
                           initialFavorited={product.isFavorited}
                           className="absolute bottom-2 right-2"
                         />
-                        {product.isUrgent && (
-                          <span className="absolute top-2 left-2 bg-gray-900/80 text-white text-xs font-medium px-2.5 py-1 rounded-full">
-                            Срочно. Торг
-                          </span>
-                        )}
+
+                        <ProductCardBadges
+                          product={product}
+                          labels={{ urgent: t("urgent"), shop: t("sellerShop"), purchase: t("typePurchase") }}
+                        />
                       </div>
 
                       <p className="mt-3 text-[18px] font-bold leading-[22px] text-[#292929] line-clamp-1 mb-1.5">
                         {product.price
                           ? `${Number(product.price).toLocaleString("ru-RU")} ${
-                              product.currency === Currency.USD ? "у.e" : "сум"
+                              product.currency === Currency.USD ? t("priceUsd") : t("priceUzs")
                             }`
-                          : "Бесплатно"}
+                          : t("freePrice")}
                       </p>
 
                       <p className="text-[16px] leading-[19px] font-normal text-[#292929] line-clamp-2 min-h-[38px] mb-[5px]">
@@ -649,10 +734,10 @@ export default function SearchResultsClient({
                       </p>
 
                       <p className="text-[14px] font-medium leading-[17px] text-[#858585] mb-1">
-                        {product.region?.name}
+                        {product.region ? localized(product.region, locale) : ""}
                       </p>
                       <p className="text-[14px] font-medium leading-[17px] text-[#858585]">
-                        {new Date(product.createdAt).toLocaleDateString("ru-RU")}
+                        {formatProductDate(product.createdAt, locale)}
                       </p>
                     </div>
                   </Link>
@@ -669,11 +754,11 @@ export default function SearchResultsClient({
                 >
                   {loadingMore ? (
                     <>
-                      <span>Загрузка</span>
+                      <span>{t("loading")}</span>
                       <CircularLoader size={18} />
                     </>
                   ) : (
-                    "Показать ещё"
+                    t("showMore")
                   )}
                 </button>
               </div>
@@ -696,7 +781,11 @@ export default function SearchResultsClient({
       {regionPickerOpen && (
         <RegionSelectMenu
           regions={regions}
-          onSelect={(region) => updateParams({ regionId: region.id })}
+          selectedRegionId={selectedRegion?.id ?? null}
+          onSelect={(newRegion) => {
+            updateRegion(newRegion);
+            setRegionPickerOpen(false);
+          }}
           onClose={() => setRegionPickerOpen(false)}
         />
       )}
@@ -705,6 +794,7 @@ export default function SearchResultsClient({
         open={filtersDrawerOpen && !categoryPickerOpen && !regionPickerOpen}
         onClose={() => setFiltersDrawerOpen(false)}
         category={category}
+        locale={locale}
         onOpenCategoryPicker={() => {
           categoryPickerFromDrawer.current = true;
           setCategoryPickerOpen(true);
@@ -717,6 +807,7 @@ export default function SearchResultsClient({
         priceFromParam={priceFromParam}
         priceToParam={priceToParam}
         currencyParam={currencyParam}
+        typeParam={typeParam}
         isUrgentParam={isUrgentParam}
         isFreeParam={isFreeParam}
         sortingParam={sortingParam}
@@ -727,24 +818,28 @@ export default function SearchResultsClient({
   );
 }
 
-const SELLER_TYPE_OPTIONS = [
-  { value: "PRIVATE", label: "Частный" },
-  { value: "SHOP", label: "Магазин / бизнес" },
-];
-
 function SellerTypeFilterPill({
   selected,
   open,
   onOpen,
   onClose,
   onCommit,
+  resetAriaLabel,
+  labels,
 }: {
   selected: string[];
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   onCommit: (next: string[]) => void;
+  resetAriaLabel: string;
+  labels: { seller: string; private: string; shop: string; reset: string; done: string };
 }) {
+  const SELLER_TYPE_OPTIONS = [
+    { value: "PRIVATE", label: labels.private },
+    { value: "SHOP", label: labels.shop },
+  ];
+
   const [pending, setPending] = useState<string[]>(selected);
 
   useEffect(() => {
@@ -758,11 +853,12 @@ function SellerTypeFilterPill({
 
   return (
     <FilterPill
-      label="Продавец"
+      label={labels.seller}
       active={selected.length > 0 && selected.length < SELLER_TYPE_OPTIONS.length}
       open={open}
       onOpen={onOpen}
       onClose={onClose}
+      resetAriaLabel={resetAriaLabel}
       onReset={selected.length > 0 ? () => onCommit([]) : undefined}
     >
       <div className="w-full">
@@ -799,7 +895,7 @@ function SellerTypeFilterPill({
               onClick={() => setPending([])}
               className="flex-1 text-gray-600 hover:text-gray-900 text-sm font-medium py-2.5 cursor-pointer transition"
             >
-              Сбросить
+              {labels.reset}
             </button>
           )}
           <button
@@ -811,7 +907,7 @@ function SellerTypeFilterPill({
                 : "bg-primary text-white cursor-pointer hover:opacity-90"
             }`}
           >
-            Готово
+            {labels.done}
           </button>
         </div>
       </div>
@@ -821,22 +917,27 @@ function SellerTypeFilterPill({
 
 function AttributeFilterPill({
   attr,
+  locale,
   selectedAttributeValueIds,
   open,
   onOpen,
   onClose,
   onCommit,
+  resetAriaLabel,
 }: {
   attr: AttributeGroupedValues;
+  locale: string;
   selectedAttributeValueIds: string[];
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   onCommit: (newSelectedForThisAttr: string[]) => void;
+  resetAriaLabel: string;
 }) {
   const attrValueIds = attr.values.map((v) => v.id);
   const committedForThisAttr = attrValueIds.filter((id) => selectedAttributeValueIds.includes(id));
   const [pending, setPending] = useState<string[]>(committedForThisAttr);
+  const attrName = localized(attr, locale);
 
   useEffect(() => {
     if (open) setPending(committedForThisAttr);
@@ -849,11 +950,12 @@ function AttributeFilterPill({
 
   return (
     <FilterPill
-      label={committedForThisAttr.length > 0 ? `${attr.name} (${committedForThisAttr.length})` : attr.name}
+      label={committedForThisAttr.length > 0 ? `${attrName} (${committedForThisAttr.length})` : attrName}
       active={committedForThisAttr.length > 0}
       open={open}
       onOpen={onOpen}
       onClose={onClose}
+      resetAriaLabel={resetAriaLabel}
       onReset={() => onCommit([])}
     >
       <div className="w-full">
@@ -872,33 +974,11 @@ function AttributeFilterPill({
                 >
                   {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                 </span>
-                <span className="text-base text-gray-800">{v.value}</span>
+                <span className="text-base text-gray-800">{localizedValue(v, locale)}</span>
                 <input type="checkbox" checked={checked} onChange={() => togglePending(v.id)} className="hidden" />
               </label>
             );
           })}
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
-          {pending.length > 0 && (
-            <button
-              onClick={() => setPending([])}
-              className="flex-1 text-gray-600 hover:text-gray-900 text-sm font-medium py-2.5 cursor-pointer transition"
-            >
-              Сбросить
-            </button>
-          )}
-          <button
-            onClick={() => onCommit(pending)}
-            disabled={pending.length === 0}
-            className={`flex-1 text-sm font-medium py-2.5 rounded-xl transition ${
-              pending.length === 0
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-primary text-white cursor-pointer hover:opacity-90"
-            }`}
-          >
-            Готово
-          </button>
         </div>
       </div>
     </FilterPill>
@@ -911,16 +991,11 @@ interface FiltersDraft {
   priceFrom: string;
   priceTo: string;
   currency?: "USD" | "UZS";
+  type?: "SALE" | "PURCHASE";
   isUrgent: boolean;
   isFree: boolean;
   sorting?: ProductSorting;
 }
-
-const SELLER_SEGMENTED: { value: string | null; label: string }[] = [
-  { value: null, label: "Все" },
-  { value: "PRIVATE", label: "Частный" },
-  { value: "SHOP", label: "Магазин / бизнес" },
-];
 
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -935,6 +1010,7 @@ function FiltersDrawer({
   open,
   onClose,
   category,
+  locale,
   onOpenCategoryPicker,
   selectedRegion,
   onOpenRegionPicker,
@@ -944,6 +1020,7 @@ function FiltersDrawer({
   priceFromParam,
   priceToParam,
   currencyParam,
+  typeParam,
   isUrgentParam,
   isFreeParam,
   sortingParam,
@@ -953,6 +1030,7 @@ function FiltersDrawer({
   open: boolean;
   onClose: () => void;
   category: Category | null;
+  locale: string;
   onOpenCategoryPicker: () => void;
   selectedRegion: Region | null;
   onOpenRegionPicker: () => void;
@@ -962,18 +1040,41 @@ function FiltersDrawer({
   priceFromParam: string | null;
   priceToParam: string | null;
   currencyParam?: "USD" | "UZS";
+  typeParam?: "SALE" | "PURCHASE";
   isUrgentParam: boolean;
   isFreeParam: boolean;
   sortingParam?: ProductSorting;
   totalCount: number;
   updateParams: (patch: Record<string, string | undefined>) => void;
 }) {
+  const t = useTranslations("search");
+
+  const SORT_LABELS: Record<string, string> = {
+    "": t("sortRecommended"),
+    NEW: t("sortNew"),
+    CHEAP: t("sortCheap"),
+    EXPENSIVE: t("sortExpensive"),
+  };
+
+  const SELLER_SEGMENTED: { value: string | null; label: string }[] = [
+    { value: null, label: t("sellerAll") },
+    { value: "PRIVATE", label: t("sellerPrivate") },
+    { value: "SHOP", label: t("sellerShop") },
+  ];
+
+  const TYPE_SEGMENTED: { value: "SALE" | "PURCHASE" | null; label: string }[] = [
+    { value: null, label: t("typeAll") },
+    { value: "SALE", label: t("typeSale") },
+    { value: "PURCHASE", label: t("typePurchase") },
+  ];
+
   const [draft, setDraft] = useState<FiltersDraft>({
     attrs: selectedAttributeValueIds,
     sellerType: selectedSellerTypes,
     priceFrom: priceFromParam ?? "",
     priceTo: priceToParam ?? "",
     currency: currencyParam,
+    type: typeParam,
     isUrgent: isUrgentParam,
     isFree: isFreeParam,
     sorting: sortingParam,
@@ -987,6 +1088,7 @@ function FiltersDrawer({
       priceFrom: priceFromParam ?? "",
       priceTo: priceToParam ?? "",
       currency: currencyParam,
+      type: typeParam,
       isUrgent: isUrgentParam,
       isFree: isFreeParam,
       sorting: sortingParam,
@@ -1025,6 +1127,7 @@ function FiltersDrawer({
       priceFrom: "",
       priceTo: "",
       currency: undefined,
+      type: undefined,
       isUrgent: false,
       isFree: false,
       sorting: undefined,
@@ -1038,6 +1141,7 @@ function FiltersDrawer({
       priceFrom: draft.priceFrom || undefined,
       priceTo: draft.priceTo || undefined,
       currency: draft.currency,
+      type: draft.type,
       isUrgent: draft.isUrgent ? "true" : undefined,
       isFree: draft.isFree ? "true" : undefined,
       sorting: draft.sorting || undefined,
@@ -1065,42 +1169,67 @@ function FiltersDrawer({
         <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-gray-100 shrink-0">
           <button
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("close")}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer transition"
           >
             <ChevronLeft className="w-5 h-5 text-gray-800" />
           </button>
-          <h2 className="text-lg font-bold text-gray-900">Фильтры</h2>
+          <h2 className="text-lg font-bold text-gray-900">{t("filters")}</h2>
           <button
             onClick={resetDraft}
             className="text-sm font-medium text-gray-500 hover:text-gray-900 cursor-pointer transition px-2"
           >
-            Сбросить
+            {t("reset")}
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <DrawerSection title="Категория">
+          <DrawerSection title={t("category")}>
             <button
               onClick={onOpenCategoryPicker}
               className="w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-left cursor-pointer hover:bg-gray-100 transition"
             >
-              <span className="text-base text-gray-800">{category ? category.name : "Все категории"}</span>
+              <span className="text-base text-gray-800">
+                {category ? localized(category, locale) : t("allCategories")}
+              </span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
           </DrawerSection>
 
-          <DrawerSection title="Где искать">
+          <DrawerSection title={t("whereToSearch")}>
             <button
               onClick={onOpenRegionPicker}
               className="w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-left cursor-pointer hover:bg-gray-100 transition"
             >
-              <span className="text-base text-gray-800">{selectedRegion ? selectedRegion.name : "Все регионы"}</span>
+              <span className="text-base text-gray-800">
+                {selectedRegion ? localized(selectedRegion, locale) : t("allRegions")}
+              </span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
           </DrawerSection>
 
-          <DrawerSection title="Продавец">
+          <DrawerSection title={t("typeFilterLabel")}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {TYPE_SEGMENTED.map((opt) => {
+                const active = opt.value === null ? !draft.type : draft.type === opt.value;
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => setDraft((d) => ({ ...d, type: opt.value ?? undefined }))}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-medium border transition cursor-pointer ${
+                      active
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </DrawerSection>
+
+          <DrawerSection title={t("seller")}>
             <div className="flex items-center gap-2 flex-wrap">
               {SELLER_SEGMENTED.map((opt) => {
                 const active =
@@ -1123,7 +1252,7 @@ function FiltersDrawer({
           </DrawerSection>
 
           {attributes.map((attr) => (
-            <DrawerSection key={attr.id} title={attr.name}>
+            <DrawerSection key={attr.id} title={localized(attr, locale)}>
               <div className="max-h-[260px] overflow-y-auto space-y-1 -mx-1 px-1">
                 {attr.values.map((v) => {
                   const checked = draft.attrs.includes(v.id);
@@ -1139,7 +1268,7 @@ function FiltersDrawer({
                       >
                         {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                       </span>
-                      <span className="text-base text-gray-800">{v.value}</span>
+                      <span className="text-base text-gray-800">{localizedValue(v, locale)}</span>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -1153,12 +1282,12 @@ function FiltersDrawer({
             </DrawerSection>
           ))}
 
-          <DrawerSection title="Цена">
+          <DrawerSection title={t("price")}>
             <div className="space-y-1 mb-4">
               {[
-                { value: undefined, label: "Не важно" },
-                { value: "UZS" as const, label: "В сумах" },
-                { value: "USD" as const, label: "В у.е." },
+                { value: undefined, label: t("currencyAny") },
+                { value: "UZS" as const, label: t("currencyUZS") },
+                { value: "USD" as const, label: t("currencyUSD") },
               ].map((opt) => (
                 <button
                   key={opt.label}
@@ -1173,14 +1302,14 @@ function FiltersDrawer({
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                placeholder="От"
+                placeholder={t("priceFrom")}
                 value={draft.priceFrom}
                 onChange={(e) => setDraft((d) => ({ ...d, priceFrom: e.target.value }))}
                 className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-base outline-none"
               />
               <input
                 type="number"
-                placeholder="До"
+                placeholder={t("priceTo")}
                 value={draft.priceTo}
                 onChange={(e) => setDraft((d) => ({ ...d, priceTo: e.target.value }))}
                 className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-base outline-none"
@@ -1188,11 +1317,11 @@ function FiltersDrawer({
             </div>
           </DrawerSection>
 
-          <DrawerSection title="Дополнительно">
+          <DrawerSection title={t("additional")}>
             <div className="space-y-1">
               {[
-                { key: "isUrgent" as const, label: "Срочно. Торг" },
-                { key: "isFree" as const, label: "Отдам даром" },
+                { key: "isUrgent" as const, label: t("urgent") },
+                { key: "isFree" as const, label: t("freeListingFilter") },
               ].map((opt) => {
                 const checked = draft[opt.key];
                 return (
@@ -1220,7 +1349,7 @@ function FiltersDrawer({
             </div>
           </DrawerSection>
 
-          <DrawerSection title="Сортировать">
+          <DrawerSection title={t("sortBy")}>
             <div className="space-y-1">
               {(["", "NEW", "CHEAP", "EXPENSIVE"] as const).map((s) => (
                 <button
@@ -1241,13 +1370,13 @@ function FiltersDrawer({
             onClick={applyDraft}
             className="w-full bg-gray-900 hover:opacity-90 text-white font-medium py-3.5 rounded-xl cursor-pointer transition"
           >
-            Показать {totalCount} {announcementWord(totalCount)}
+            {t("showCount", { count: totalCount, word: announcementWord(totalCount, locale) })}
           </button>
           <button
             onClick={resetDraft}
             className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3.5 rounded-xl cursor-pointer transition"
           >
-            Сбросить
+            {t("reset")}
           </button>
         </div>
       </div>

@@ -2,17 +2,12 @@
 
 import { useRef, useState } from "react";
 import { ImageUp, Store } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createShop, updateShop, type BusinessType } from "@/services/shop.service";
 import { ShopEditData } from "@/types/responses/shop.response";
 
 const SECTION_CARD = "bg-white border border-gray-100 rounded-2xl p-6 sm:p-8";
 const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
-
-const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
-  { value: "SELF_EMPLOYED", label: "Самозанятый" },
-  { value: "INDIVIDUAL", label: "ИП — Индивидуальный предприниматель" },
-  { value: "LLC", label: "ООО — Общество с ограниченной ответственностью" },
-];
 
 interface Props {
   mode?: "create" | "edit";
@@ -22,12 +17,17 @@ interface Props {
 }
 
 export default function CreateShopForm({ mode = "create", shopId, initialData, onSuccess }: Props) {
+  const t = useTranslations("createShopForm");
+
+  const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
+    { value: "SELF_EMPLOYED", label: t("businessTypeSelfEmployed") },
+    { value: "INDIVIDUAL", label: t("businessTypeIndividual") },
+    { value: "LLC", label: t("businessTypeLLC") },
+  ];
+
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  // On edit, the preview starts as the existing banner (full URL); on
-  // create there's nothing yet. Picking a new file overwrites this either
-  // way via handleBannerChange.
   const [bannerPreview, setBannerPreview] = useState<string | null>(
     initialData?.bannerUrl ? `${MEDIA_BASE}${initialData.bannerUrl}` : null,
   );
@@ -53,10 +53,6 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Same "+998 XX XXX XX XX" formatting pattern as LoginModal — digits are
-  // tracked separately from the displayed/formatted value, so typing
-  // always inserts into the right spot regardless of where the spaces
-  // currently are.
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, "").slice(0, 9);
     const parts: string[] = [];
@@ -95,10 +91,6 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
       phone: `+998${phoneDigits}`,
       description: description.trim() || undefined,
       businessType,
-      // Tax id only makes sense for a registered legal entity — not
-      // sent at all for a self-employed seller, matching the schema's
-      // "optional" taxIdNumber (nullable) rather than forcing a value
-      // that doesn't apply.
       taxIdNumber: businessType !== "SELF_EMPLOYED" ? taxIdNumber.trim() || undefined : undefined,
       contactName: contactName.trim() || undefined,
       address: address.trim() || undefined,
@@ -118,11 +110,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
       onSuccess();
     } catch (err) {
       console.error(`Failed to ${mode === "edit" ? "update" : "create"} shop`, err);
-      setError(
-        mode === "edit"
-          ? "Не удалось сохранить изменения. Попробуйте ещё раз."
-          : "Не удалось отправить заявку. Попробуйте ещё раз.",
-      );
+      setError(mode === "edit" ? t("saveError") : t("createError"));
     } finally {
       setSubmitting(false);
     }
@@ -132,9 +120,9 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
     <div className="space-y-6 max-w-2xl">
       {/* BANNER */}
       <section className={SECTION_CARD}>
-        <h2 className="text-lg font-bold text-gray-800 mb-1">Обложка магазина</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-1">{t("bannerTitle")}</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Так обложка будет выглядеть на странице магазина
+          {t("bannerSubtitle")}
         </p>
 
         <input
@@ -151,17 +139,15 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
         >
           {bannerPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={bannerPreview} alt="Обложка магазина" className="w-full h-full object-cover" />
+            <img src={bannerPreview} alt={t("bannerAlt")} className="w-full h-full object-cover" />
           ) : (
             <>
               <ImageUp className="w-8 h-8 text-gray-400" />
-              <span className="text-gray-500 text-sm">Нажмите, чтобы загрузить обложку</span>
+              <span className="text-gray-500 text-sm">{t("bannerUploadPrompt")}</span>
             </>
           )}
         </div>
 
-        {/* Preview row — how the banner + shop name will read together on
-            the shop's own page, same idea as the mobile app's preview row. */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
             {bannerPreview ? (
@@ -172,7 +158,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
             )}
           </div>
           <span className="text-gray-400 text-[15px]">
-            {shopName.trim() || "Название магазина"}
+            {shopName.trim() || t("shopNamePlaceholder")}
           </span>
         </div>
 
@@ -181,30 +167,30 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
           className="w-full cursor-pointer bg-gray-100 hover:bg-gray-200 transition text-gray-700 font-medium py-3 rounded-xl flex items-center justify-center gap-2"
         >
           <ImageUp className="w-4 h-4" />
-          Загрузить обложку
+          {t("uploadBanner")}
         </button>
       </section>
 
       {/* SHOP INFO */}
       <section className={SECTION_CARD}>
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Информация о магазине</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-4">{t("shopInfoTitle")}</h2>
 
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-700 mb-1.5">
-              Название магазина <span className="text-red-500">*</span>
+              {t("shopName")} <span className="text-red-500">*</span>
             </label>
             <input
               value={shopName}
               onChange={(e) => setShopName(e.target.value)}
-              placeholder="Например, Texnosot"
+              placeholder={t("shopNameInputPlaceholder")}
               className="w-full bg-gray-100 rounded-xl px-4 py-3 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
 
           <div>
             <label className="block text-sm text-gray-700 mb-1.5">
-              Телефон для связи <span className="text-red-500">*</span>
+              {t("phone")} <span className="text-red-500">*</span>
             </label>
             <input
               value={formatPhone(phoneDigits)}
@@ -216,12 +202,12 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">Описание</label>
+            <label className="block text-sm text-gray-700 mb-1.5">{t("description")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Чем занимается ваш магазин"
+              placeholder={t("descriptionPlaceholder")}
               className="w-full resize-none bg-gray-100 rounded-xl px-4 py-3 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
@@ -230,7 +216,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
 
       {/* BUSINESS TYPE */}
       <section className={SECTION_CARD}>
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Форма бизнеса</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-4">{t("businessTypeTitle")}</h2>
 
         <div className="space-y-2">
           {BUSINESS_TYPES.map((type) => {
@@ -254,13 +240,10 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
           })}
         </div>
 
-        {/* Tax id only relevant for a registered legal entity — shown
-            conditionally rather than always, since it doesn't apply to
-            a self-employed seller. */}
         {businessType !== "SELF_EMPLOYED" && (
           <div className="mt-4">
             <label className="block text-sm text-gray-700 mb-1.5">
-              ИНН / номер налогоплательщика
+              {t("taxId")}
             </label>
             <input
               value={taxIdNumber}
@@ -274,25 +257,25 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
 
       {/* CONTACTS */}
       <section className={SECTION_CARD}>
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Контакты</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-4">{t("contactsTitle")}</h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">Контактное лицо</label>
+            <label className="block text-sm text-gray-700 mb-1.5">{t("contactName")}</label>
             <input
               value={contactName}
               onChange={(e) => setContactName(e.target.value)}
-              placeholder="Имя"
+              placeholder={t("contactNamePlaceholder")}
               className="w-full bg-gray-100 rounded-xl px-4 py-3 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">Адрес</label>
+            <label className="block text-sm text-gray-700 mb-1.5">{t("address")}</label>
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Город, улица"
+              placeholder={t("addressPlaceholder")}
               className="w-full bg-gray-100 rounded-xl px-4 py-3 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
@@ -301,7 +284,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
 
       {/* SOCIAL LINKS */}
       <section className={SECTION_CARD}>
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Ссылки на магазин</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-4">{t("socialLinksTitle")}</h2>
 
         <div className="space-y-4">
           <div>
@@ -335,7 +318,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">Веб-сайт</label>
+            <label className="block text-sm text-gray-700 mb-1.5">{t("website")}</label>
             <input
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
@@ -359,11 +342,11 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
       >
         {submitting
           ? mode === "edit"
-            ? "Сохранение…"
-            : "Отправка…"
+            ? t("saving")
+            : t("submitting")
           : mode === "edit"
-            ? "Сохранить"
-            : "Отправить заявку"}
+            ? t("save")
+            : t("submit")}
       </button>
     </div>
   );

@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AttributeGroupedValues } from "@/types/attribute/attribute";
+import { localized, localizedValue } from "@/lib/localized";
+import { useLocaleRegion } from "@/hooks/useLocaleRegion";
 
 interface Props {
   attribute: AttributeGroupedValues;
@@ -11,12 +14,13 @@ interface Props {
 }
 
 export default function AttributeField({ attribute, value, onChange }: Props) {
+  const { locale } = useLocaleRegion();
+  const t = useTranslations("createProduct");
+
   const isBinary = attribute.values.length === 2;
   const selectedValue = attribute.values.find((v) => v.id === value);
+  const attributeName = localized(attribute, locale);
 
-  // No shadcn/Radix DropdownMenu here — just the same plain
-  // useState + click-outside pattern as FilterPill on the search page,
-  // so there's no extra UI library dependency for this.
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +35,7 @@ export default function AttributeField({ attribute, value, onChange }: Props) {
 
   return (
     <div>
-      <div className="mb-3 mt-2 text-lg font-medium text-gray-700">{attribute.name}</div>
+      <div className="mb-3 mt-2 text-lg font-medium text-gray-700">{attributeName}</div>
 
       {isBinary ? (
         <div className="flex gap-2">
@@ -48,7 +52,7 @@ export default function AttributeField({ attribute, value, onChange }: Props) {
                     : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200"
                 }`}
               >
-                {v.value}
+                {localizedValue(v, locale)}
               </button>
             );
           })}
@@ -61,15 +65,13 @@ export default function AttributeField({ attribute, value, onChange }: Props) {
             className="w-full h-14 px-4 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-100 hover:bg-gray-200 transition cursor-pointer text-base font-medium"
           >
             <span className={selectedValue ? "text-gray-900" : "text-gray-500"}>
-              {selectedValue ? selectedValue.value : `Выберите ${attribute.name.toLowerCase()}`}
+              {selectedValue ? localizedValue(selectedValue, locale) : t("selectPlaceholder", { attribute: attributeName.toLowerCase() })}
             </span>
             <ChevronDown
               className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
             />
           </button>
 
-          {/* No shadow — flat bordered panel, same as the search page's
-              filter dropdowns. */}
           {open && (
             <div className="absolute top-full left-0 mt-2 z-30 w-full bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-1.5 max-h-[340px] overflow-y-auto">
               {attribute.values.map((v) => {
@@ -91,7 +93,7 @@ export default function AttributeField({ attribute, value, onChange }: Props) {
                     >
                       {active && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                     </span>
-                    <span className="text-base text-gray-800">{v.value}</span>
+                    <span className="text-base text-gray-800">{localizedValue(v, locale)}</span>
                   </button>
                 );
               })}

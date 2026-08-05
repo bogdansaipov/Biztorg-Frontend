@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { getMyFavorites } from "@/services/favorite.service";
 import { Product } from "@/types/Product";
 import FavoriteProductCard from "./FavoriteProductCard";
 import FavoriteCardSkeleton from "./FavoriteCardSkeleton";
 
 export default function FavoriteListingsTab() {
+  const pathname = usePathname();
+  const locale = pathname.split("/")[1] || "ru";
+  const t = useTranslations("favorites");
+
   const [products, setProducts] = useState<Product[] | null>(null);
 
   useEffect(() => {
@@ -19,9 +25,6 @@ export default function FavoriteListingsTab() {
   }, []);
 
   const handleUnfavorite = (productId: string) => {
-    // This list IS "my favorites" — once a product is unfavorited here,
-    // it no longer belongs on this page at all, so it's dropped from the
-    // local list immediately rather than waiting for a refetch/refresh.
     setProducts((prev) => (prev ? prev.filter((p) => p.id !== productId) : prev));
   };
 
@@ -38,15 +41,21 @@ export default function FavoriteListingsTab() {
   if (products.length === 0) {
     return (
       <p className="text-gray-400 text-sm py-6">
-        Вы пока не добавили ни одного объявления в избранное.
+        {t("noFavoritedListings")}
       </p>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-0.5 pt-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-0 sm:gap-0.5 pt-4">
       {products.map((p) => (
-        <FavoriteProductCard key={p.id} product={p} onUnfavorite={() => handleUnfavorite(p.id)} />
+        <FavoriteProductCard
+          key={p.id}
+          product={p}
+          locale={locale}
+          mobileRow
+          onUnfavorite={() => handleUnfavorite(p.id)}
+        />
       ))}
     </div>
   );

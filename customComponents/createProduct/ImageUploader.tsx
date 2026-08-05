@@ -3,6 +3,7 @@
 import { ImageUp, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 
 interface Props {
   previewImages: string[];
@@ -13,10 +14,6 @@ interface Props {
 
 const LIGHTBOX_Z_INDEX = 2147483647;
 
-// Fullscreen preview for the images the user has already picked, before
-// upload — same portal + fixed-z-index pattern used on the product detail
-// page's image lightbox, but simpler (no seller bar, no thumbnail rail,
-// since there are only ever up to 4 local previews here).
 function ImagePreviewLightbox({
   images,
   index,
@@ -28,6 +25,7 @@ function ImagePreviewLightbox({
   onIndexChange: (updater: (i: number) => number) => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("createProduct");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -69,12 +67,12 @@ function ImagePreviewLightbox({
     >
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <span className="text-white/80 text-sm font-medium">
-          {index + 1} из {images.length}
+          {t("photoOf", { index: index + 1, total: images.length })}
         </span>
         <button
           onClick={onClose}
           className="text-white hover:opacity-70 transition cursor-pointer p-1"
-          aria-label="Закрыть"
+          aria-label={t("close")}
         >
           <X className="w-6 h-6" />
         </button>
@@ -93,14 +91,14 @@ function ImagePreviewLightbox({
             <button
               onClick={goPrev}
               className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition"
-              aria-label="Предыдущее фото"
+              aria-label={t("prevPhoto")}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={goNext}
               className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition"
-              aria-label="Следующее фото"
+              aria-label={t("nextPhoto")}
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -119,6 +117,7 @@ export default function ImageUploader({
   uploadedFiles,
   setUploadedFiles,
 }: Props) {
+  const t = useTranslations("createProduct");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -159,8 +158,6 @@ export default function ImageUploader({
   };
 
   const removeImage = (e: React.MouseEvent, index: number) => {
-    // Stop propagation so clicking the X to delete a preview doesn't also
-    // bubble up and open the lightbox for that same image.
     e.stopPropagation();
     setPreviewImages(previewImages.filter((_, i) => i !== index));
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
@@ -168,8 +165,8 @@ export default function ImageUploader({
 
   return (
     <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-9">
-      <h2 className="text-2xl font-bold mb-4 text-gray-700">
-        Фотографии (от 1 до 4)
+      <h2 className="text-lg sm:text-2xl font-bold mb-4 text-gray-700">
+        {t("photosTitle")}
       </h2>
 
       <input
@@ -188,15 +185,15 @@ export default function ImageUploader({
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
-          <button className="cursor-pointer bg-primary text-white px-4 font-semibold py-2.5 rounded-xl">
-            Выберите фото
-          </button>
+        <button className="cursor-pointer bg-primary text-white px-4 font-semibold py-2 sm:py-2.5 text-sm sm:text-base rounded-xl">
+  {t("choosePhotos")}
+</button>
 
-          <p className="text-lg font-semibold mt-2 text-gray-600">
-            или перетащите их сюда
-            <br />
-            (JPG, PNG, WEBP до 5 МБ)
-          </p>
+<p className="text-base sm:text-lg font-semibold mt-2 text-gray-600">
+  {t("orDragHere")}
+  <br />
+  {t("fileHint")}
+</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

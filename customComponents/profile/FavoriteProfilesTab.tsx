@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { CircleUser, Store, BadgeCheck } from "lucide-react";
 import { getMyFollows } from "@/services/follow.service";
 import { FollowedShopEntry, FollowedUserEntry, FollowsMeData } from "@/types/responses/follow.response";
@@ -9,35 +11,26 @@ import { Product } from "@/types/Product";
 import FavoriteProductCard from "./FavoriteProductCard";
 import FavoriteCardSkeleton from "./FavoriteCardSkeleton";
 
-// First row shown immediately; "Показать ещё" reveals up to this many more
-// (filling a second row of 5) — matches the birbir reference exactly:
-// row 1 = 5 products, row 2 = 4 products + 1 "see all" tile.
 const FIRST_ROW = 5;
 const SECOND_ROW = 4;
-const MAX_SHOWN = FIRST_ROW + SECOND_ROW; // 9 real product slots, max
+const MAX_SHOWN = FIRST_ROW + SECOND_ROW;
 
-function pluralizeListings(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod100 >= 11 && mod100 <= 14) return `${count} объявлений`;
-  if (mod10 === 1) return `${count} объявление`;
-  if (mod10 >= 2 && mod10 <= 4) return `${count} объявления`;
-  return `${count} объявлений`;
-}
-
-// One followed target (user or shop) — header row + its product grid.
 function FollowedEntrySection({
   name,
   isShop,
   isVerified,
   href,
   products,
+  locale,
+  t,
 }: {
   name: string;
   isShop: boolean;
   isVerified: boolean;
   href: string;
   products: Product[];
+  locale: string;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -62,14 +55,12 @@ function FollowedEntrySection({
               <span className="truncate">{name}</span>
               {isVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
             </div>
-            <div className="text-sm text-gray-500">{pluralizeListings(products.length)}</div>
+            <div className="text-sm text-gray-500">{t("listingsCount", { count: products.length })}</div>
           </div>
         </Link>
 
-        {/* TODO: no unfollow endpoint given yet — wire this up once you
-            have one (e.g. DELETE /follows/:targetId). */}
         <button className="shrink-0 cursor-pointer bg-gray-100 hover:bg-gray-200 transition text-gray-700 text-sm font-medium px-4 py-2 rounded-full">
-          Вы подписаны
+          {t("following")}
         </button>
       </div>
 
@@ -77,19 +68,12 @@ function FollowedEntrySection({
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-0.5">
             {visibleProducts.map((p) => (
-              <FavoriteProductCard key={p.id} product={p} />
+              <FavoriteProductCard key={p.id} product={p} locale={locale} />
             ))}
 
-            {/* Always the last cell in the grid, regardless of expand
-                state — a static "Смотреть все" tile linking to the full
-                profile. Structured to exactly mirror FavoriteProductCard's
-                wrapper (outer p-2, inner aspect-square) so this square
-                ends up the same actual size as a product image, not
-                bigger — aspect-square directly on a padded element makes
-                its footprint the full column width plus that padding. */}
             <Link href={href} className="block rounded-xl p-2">
               <div className="relative aspect-square rounded-2xl bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-center font-medium text-gray-700 p-2">
-                Смотреть все
+                {t("viewAll")}
               </div>
             </Link>
           </div>
@@ -99,18 +83,22 @@ function FollowedEntrySection({
               onClick={() => setExpanded(true)}
               className="mt-3 w-full cursor-pointer bg-gray-100 hover:bg-gray-200 transition text-gray-700 font-medium py-3 rounded-xl"
             >
-              Показать ещё
+              {t("showMore")}
             </button>
           )}
         </>
       ) : (
-        <p className="text-gray-400 text-sm">Пока нет объявлений</p>
+        <p className="text-gray-400 text-sm">{t("noListingsYet")}</p>
       )}
     </div>
   );
 }
 
 export default function FavoriteProfilesTab() {
+  const pathname = usePathname();
+  const locale = pathname.split("/")[1] || "ru";
+  const t = useTranslations("favorites");
+
   const [data, setData] = useState<FollowsMeData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -149,7 +137,7 @@ export default function FavoriteProfilesTab() {
   if (users.length === 0 && shops.length === 0) {
     return (
       <p className="text-gray-400 text-sm py-6">
-        Вы пока ни на кого не подписаны.
+        {t("noFollows")}
       </p>
     );
   }
@@ -162,8 +150,10 @@ export default function FavoriteProfilesTab() {
           name={entry.user.name}
           isShop={false}
           isVerified={false}
-          href={`/user/${entry.user.id}`}
+          href={`/${locale}/user/${entry.user.id}`}
           products={entry.products}
+          locale={locale}
+          t={t}
         />
       ))}
 
@@ -172,9 +162,11 @@ export default function FavoriteProfilesTab() {
           key={entry.shop.id}
           name={entry.shop.shopName}
           isShop
-          isVerified={entry.shop.verificationStatus === "VERIFIED"}
-          href={`/shop/${entry.shop.id}`}
+          isVerified={entry.shop.is === "VERIFIED"}
+          href={`/${locale}/shop/${entry.shop.id}`}
           products={entry.products}
+          locale={locale}
+          t={t}
         />
       ))}
     </div>

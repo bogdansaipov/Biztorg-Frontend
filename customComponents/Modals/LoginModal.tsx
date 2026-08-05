@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { api } from "@/helpers/api";
-import { useAuthStore } from "@/stores/auth.store";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Loader2, X } from "lucide-react";
 import OtpInput from "../Inputs/OtpInput";
 import { LoginStep } from "@/enums/LoginStepEnum";
+import { sendPhoneCode, verifyPhoneCode } from "@/services/auth.service";
+
+const RESEND_SECONDS = 120;
 
 export default function LoginModal({
   open,
@@ -14,19 +17,39 @@ export default function LoginModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const pathname = usePathname();
+  const locale = pathname.split("/")[1] || "ru";
+  const t = useTranslations("loginModal");
+
   const [step, setStep] = useState<LoginStep>(LoginStep.PHONE);
   const [digits, setDigits] = useState("");
-  const [requestId, setRequestId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
 
-  const setAuth = useAuthStore((s) => s.setAuth);
-
-  useEffect(() => {
+ useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
   }, [open]);
+  
+  useEffect(() => {
+    if (!open) {
+      setStep(LoginStep.PHONE);
+      setDigits("");
+      setResendIn(0);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (step !== LoginStep.CODE || resendIn <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendIn((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [step, resendIn]);
 
   if (!open) return null;
 
@@ -52,17 +75,23 @@ export default function LoginModal({
   const sendCode = async () => {
     if (digits.length !== 9) return;
 
-    console.log('Raw phone string is: ', rawPhone)
+    setLoading(true);
+    try {
+      await sendPhoneCode(rawPhone);
+      setStep(LoginStep.CODE);
+      setResendIn(RESEND_SECONDS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendCode = async () => {
+    if (resendIn > 0 || loading) return;
 
     setLoading(true);
     try {
-      const res = await api.post("/auth/phone/send-code", {
-        phone: rawPhone,
-      });
-
-
-      setRequestId(res.data.data.requestId);
-      setStep(LoginStep.CODE);
+      await sendPhoneCode(rawPhone);
+      setResendIn(RESEND_SECONDS);
     } finally {
       setLoading(false);
     }
@@ -71,28 +100,20 @@ export default function LoginModal({
   const verifyCode = async (code: string) => {
     setLoading(true);
     try {
-      const res = await api.post("/auth/phone/verify", {
-        phone: rawPhone,
-        requestId,
-        code,
-      });
-
-      setAuth({
-        user: res.data.data.user,
-      });
-
+      await verifyPhoneCode(rawPhone, code);
       onClose();
     } finally {
       setLoading(false);
-      setStep(LoginStep.PHONE)
+      setStep(LoginStep.PHONE);
+      setResendIn(0);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl w-[420px] p-8 z-10">
+      <div className="relative bg-white rounded-2xl w-full max-w-[480px] p-8 sm:p-10 z-10">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -103,45 +124,56 @@ export default function LoginModal({
         {step === LoginStep.PHONE && (
           <>
             <h2 className="text-2xl font-bold mb-6">
-              Войти или создать профиль
+              {t("titlePhone")}
             </h2>
 
             <input
               value={formatPhone(digits)}
               onChange={handlePhoneChange}
               inputMode="numeric"
-              className="w-full bg-gray-100 rounded-xl px-4 py-3 text-lg outline-none"
+              className="w-full bg-gray-100 rounded-xl px-4 py-3.5 text-lg outline-none"
               placeholder="+998 90 123 45 67"
             />
 
             <p className="text-sm text-gray-400 mt-3">
-              Авторизуясь вы соглашаетесь с политикой обработки персональных данных
+              {t("privacyNotice")}
             </p>
 
             <button
               onClick={sendCode}
               disabled={loading || digits.length !== 9}
-              className="w-full mt-6 cursor-pointer bg-primary text-white py-3 disabled:cursor-default rounded-xl disabled:opacity-50"
+              className="w-full mt-6 flex items-center justify-center gap-2 cursor-pointer bg-primary text-white py-3.5 disabled:cursor-default rounded-xl disabled:opacity-50"
             >
-              Получить код
+              {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+              {t("getCode")}
             </button>
           </>
         )}
-        
+
         {step === LoginStep.CODE && (
           <>
             <h2 className="text-2xl font-bold mb-2">
-              Введите код из Telegram
+              {t("titleCode")}
             </h2>
 
-            <p className="text-gray-500 mb-6">
-              Отправили на {formatPhone(digits)}
+            <p className="text-gray-500 mb-8">
+              {t("sentTo", { phone: formatPhone(digits) })}
             </p>
 
-            <OtpInput length={6} onComplete={verifyCode} />
+            <OtpInput length={4} onComplete={verifyCode} />
 
             <p className="text-sm text-gray-400 mt-6 text-center">
-              Запросить код повторно через 117 сек
+              {resendIn > 0 ? (
+                t("resendIn", { seconds: resendIn })
+              ) : (
+                <button
+                  onClick={resendCode}
+                  disabled={loading}
+                  className="text-primary cursor-pointer disabled:opacity-50"
+                >
+                  {t("resendNow")}
+                </button>
+              )}
             </p>
           </>
         )}

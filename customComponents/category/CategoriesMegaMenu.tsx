@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { api } from "@/helpers/api"
 import { Category } from "@/types/category"
 import { slugPathFor } from "@/lib/categorySlug"
+import { localized } from "@/lib/localized"
+import { useLocaleRegion } from "@/hooks/useLocaleRegion"
 
 interface Props {
   rootCategories: Category[]
@@ -15,24 +18,21 @@ const MEDIA_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
   "https://169-58-13-208.nip.io"
 
-// How many grandchild links to show per second-level group before
-// collapsing the rest behind "Ещё N" (desktop pane only).
 const COLLAPSED_COUNT = 5
 
 export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
+  const { locale, region } = useLocaleRegion()
+  const t = useTranslations("categoryMenu")
+
   const [allCategories, setAllCategories] = useState<Category[] | null>(null)
   const [activeRootId, setActiveRootId] = useState<string | null>(
     rootCategories[0]?.id ?? null,
   )
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
-  // Mobile only: a stack of selected categories representing how deep we've
-  // drilled down (empty = showing the root list). Each level renders only
-  // its own direct children — nothing further is shown until tapped.
   const [mobileStack, setMobileStack] = useState<Category[]>([])
   const [mobileQuery, setMobileQuery] = useState("")
 
-  // Lock page scroll while the modal is open.
   useEffect(() => {
     document.body.style.overflow = "hidden"
     return () => {
@@ -40,7 +40,6 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
     }
   }, [])
 
-  // Close on Escape.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
@@ -49,8 +48,6 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
     return () => window.removeEventListener("keydown", handler)
   }, [onClose])
 
-  // Lazy-load the full (flat) category list — with parentId — the first
-  // time the menu opens, so the homepage itself only ever needs the roots.
   useEffect(() => {
     let cancelled = false
     api.get("/categories").then((res) => {
@@ -73,14 +70,8 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
     return map
   }, [allCategories])
 
-  // Full canonical slug path for a category (e.g. "Автомобили" ->
-  // "/transport/avtomobili") — matches app/[...slug]/page.tsx's own
-  // canonicalization exactly, so these links never bounce through a
-  // redirect. Falls back to just the category's own slug if the flat
-  // list hasn't loaded yet (shouldn't normally happen since links only
-  // render once allCategories is populated).
   const categoryHref = (cat: Category) =>
-    `/${slugPathFor(cat, allCategories ?? rootCategories).join("/")}`
+    `/${locale}/${region}/category/${slugPathFor(cat, allCategories ?? rootCategories).join("/")}`
 
   const secondLevel = activeRootId ? childrenByParent.get(activeRootId) ?? [] : []
   const activeRoot = rootCategories.find((c) => c.id === activeRootId)
@@ -103,7 +94,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
     : rootCategories
   const filteredMobileList = mobileQuery.trim()
     ? mobileList.filter((c) =>
-        c.name.toLowerCase().includes(mobileQuery.trim().toLowerCase()),
+        localized(c, locale).toLowerCase().includes(mobileQuery.trim().toLowerCase()),
       )
     : mobileList
 
@@ -127,6 +118,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
           <RootCategoryList
             rootCategories={rootCategories}
             activeRootId={activeRootId}
+            locale={locale}
             onSelect={setActiveRootId}
             onHover={setActiveRootId}
           />
@@ -142,7 +134,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
                 onClick={onClose}
                 className="flex items-center gap-1.5 text-2xl font-medium leading-none mb-5 hover:text-primary transition-colors"
               >
-                {activeRoot?.name}
+                {activeRoot ? localized(activeRoot, locale) : ""}
                 <ChevronRight className="w-6 h-6 text-black/80" />
               </a>
               <SubcategoryColumns
@@ -152,6 +144,8 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
                 onToggleGroup={toggleGroup}
                 categoryHref={categoryHref}
                 onNavigate={onClose}
+                locale={locale}
+                showMoreLabel={(count) => t("showMore", { count })}
               />
             </>
           )}
@@ -172,7 +166,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
             <span className="w-9 h-9 shrink-0" />
           )}
           <h2 className="flex-1 text-lg font-normal truncate">
-            {mobileParent ? mobileParent.name : "Все категории"}
+            {mobileParent ? localized(mobileParent, locale) : t("allCategories")}
           </h2>
           <button
             onClick={onClose}
@@ -188,7 +182,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
             <input
               value={mobileQuery}
               onChange={(e) => setMobileQuery(e.target.value)}
-              placeholder="Найти"
+              placeholder={t("search")}
               className="w-full bg-gray-100 rounded-xl pl-9 pr-3 py-2.5 text-[15px] outline-none placeholder:text-gray-400"
             />
           </div>
@@ -201,21 +195,20 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
             </div>
           ) : (
             <>
-              {/* "Все категории" shortcut to the current level's own listing page —
-                  only shown once we've drilled into something (not at the root list). */}
               {mobileParent && (
                 <a
                   href={categoryHref(mobileParent)}
                   onClick={onClose}
                   className="block px-4 py-3 text-[16px] text-black/80 hover:bg-gray-50"
                 >
-                  Все категории
+                  {t("allCategories")}
                 </a>
               )}
 
               {filteredMobileList.map((cat) => {
                 const hasChildren = (childrenByParent.get(cat.id) ?? []).length > 0
-                const showIcon = mobileStack.length === 0 // only true root level has icons
+                const showIcon = mobileStack.length === 0
+                const name = localized(cat, locale)
 
                 const content = (
                   <>
@@ -223,13 +216,13 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
                       <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
                         <img
                           src={`${MEDIA_BASE}/public${cat.imageUrl}`}
-                          alt={cat.name}
+                          alt={name}
                           className="w-12 h-12 object-contain"
                         />
                       </span>
                     )}
                     <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-                      {cat.name}
+                      {name}
                     </span>
                     {hasChildren && (
                       <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
@@ -259,7 +252,7 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
 
               {filteredMobileList.length === 0 && (
                 <p className="px-4 py-6 text-center text-black/40 text-[15px]">
-                  Ничего не найдено
+                  {t("noResults")}
                 </p>
               )}
             </>
@@ -270,51 +263,50 @@ export default function CategoriesMegaMenu({ rootCategories, onClose }: Props) {
   )
 }
 
-/** Shared root-category list, used by the desktop sidebar. */
 function RootCategoryList({
   rootCategories,
   activeRootId,
+  locale,
   onSelect,
   onHover,
 }: {
   rootCategories: Category[]
   activeRootId: string | null
+  locale: string
   onSelect: (id: string) => void
   onHover?: (id: string) => void
 }) {
   return (
     <>
-      {rootCategories.map((cat) => (
-        <button
-          key={cat.id}
-          onMouseEnter={onHover ? () => onHover(cat.id) : undefined}
-          onClick={() => onSelect(cat.id)}
-          className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
-            activeRootId === cat.id ? "bg-gray-100" : "hover:bg-gray-50"
-          }`}
-        >
-          <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
-            <img
-              src={`${MEDIA_BASE}/public${cat.imageUrl}`}
-              alt={cat.name}
-              className="w-12 h-12 object-contain"
-            />
-          </span>
-          <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
-            {cat.name}
-          </span>
-          <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
-        </button>
-      ))}
+      {rootCategories.map((cat) => {
+        const name = localized(cat, locale)
+        return (
+          <button
+            key={cat.id}
+            onMouseEnter={onHover ? () => onHover(cat.id) : undefined}
+            onClick={() => onSelect(cat.id)}
+            className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer ${
+              activeRootId === cat.id ? "bg-gray-100" : "hover:bg-gray-50"
+            }`}
+          >
+            <span className="flex items-center justify-center w-14 h-14 rounded-lg bg-gray-50 shrink-0">
+              <img
+                src={`${MEDIA_BASE}/public${cat.imageUrl}`}
+                alt={name}
+                className="w-12 h-12 object-contain"
+              />
+            </span>
+            <span className="flex-1 min-w-0 text-[16px] font-normal text-black/80 line-clamp-2">
+              {name}
+            </span>
+            <ChevronRight className="w-4 h-4 text-black/30 shrink-0" />
+          </button>
+        )
+      })}
     </>
   )
 }
 
-/**
- * Desktop-only: 2nd-level headers + their 3rd-level lists shown together in
- * multi-column layout (with "Ещё N" collapsing long lists). Mobile no longer
- * uses this — it drills down one level at a time instead.
- */
 function SubcategoryColumns({
   secondLevel,
   childrenByParent,
@@ -322,6 +314,8 @@ function SubcategoryColumns({
   onToggleGroup,
   categoryHref,
   onNavigate,
+  locale,
+  showMoreLabel,
 }: {
   secondLevel: Category[]
   childrenByParent: Map<string, Category[]>
@@ -329,6 +323,8 @@ function SubcategoryColumns({
   onToggleGroup: (id: string) => void
   categoryHref: (cat: Category) => string
   onNavigate: () => void
+  locale: string
+  showMoreLabel: (count: number) => string
 }) {
   return (
     <div className="columns-1 sm:columns-2 lg:columns-3 gap-6">
@@ -347,7 +343,7 @@ function SubcategoryColumns({
               onClick={onNavigate}
               className="flex items-center gap-1 font-normal text-[17px] text-black/85 hover:text-primary mb-2"
             >
-              {group.name}
+              {localized(group, locale)}
               {grandchildren.length > 0 && <ChevronRight className="w-4 h-4" />}
             </a>
 
@@ -360,7 +356,7 @@ function SubcategoryColumns({
                       onClick={onNavigate}
                       className="text-[16px] text-black/60 hover:text-primary hover:underline"
                     >
-                      {sub.name}
+                      {localized(sub, locale)}
                     </a>
                   </li>
                 ))}
@@ -372,7 +368,7 @@ function SubcategoryColumns({
                 onClick={() => onToggleGroup(group.id)}
                 className="flex items-center gap-1 text-[15px] text-primary mt-2 cursor-pointer"
               >
-                Ещё {hiddenCount}
+                {showMoreLabel(hiddenCount)}
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
             )}
@@ -383,7 +379,6 @@ function SubcategoryColumns({
   )
 }
 
-/** Shimmer placeholder shown while the flat category list is loading. */
 function MegaMenuSkeleton() {
   return (
     <div className="animate-pulse">
