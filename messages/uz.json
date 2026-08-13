@@ -225,7 +225,8 @@
   "activeTab": "Faol {count}",
   "noProducts": "Bu foydalanuvchida hozircha e'lonlar yo'q.",
   "noReviews": "Fikrlar yo'q",
-  "profileFallbackTitle": "BizTorg profili"
+  "profileFallbackTitle": "BizTorg profili",
+  "editProfileButton": "Tahrirlash"
 },
 "userRatings": {
   "title": "Foydalanuvchi mahsulotlari haqidagi fikrlar",
@@ -483,5 +484,27 @@
   "added": "Sevimlilarga qo'shildi",
   "removeAria": "Sevimlilardan olib tashlash",
   "addAria": "Sevimlilarga qo'shish"
-}
+},
+"session": {
+  "expired": "Sessiya muddati tugadi. Iltimos, qayta kiring."
+},
+"footer": {
+  "regionsHeading": "BizTorg butun O'zbekiston bo'ylab",
+  "showMoreRegions": "Yana {count}",
+  "showLess": "Yig'ish",
+  "companyHeading": "Kompaniya",
+  "aboutUs": "Kompaniya haqida",
+  "support": "Yordam",
+  "blog": "Blog",
+  "allRegions": "Barcha hududlar",
+  "rules": "Platforma qoidalari",
+  "services": "Xizmatlar",
+  "linksHeading": "Bo'limlar",
+  "downloadApp": "Mobil ilova",
+  "socialLabel": "Ijtimoiy tarmoqlarda",
+  "copyright": "© {year} «SHORTWAY» MChJ. Barcha huquqlar himoyalangan.",
+  "privacyPolicy": "Maxfiylik siyosati",
+  "termsOfService": "Foydalanuvchi shartnomasi"
+},
+"editProfileButton": "Tahrirlash"
 }

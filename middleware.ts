@@ -26,9 +26,12 @@ export function middleware(req: NextRequest) {
   const locale = localeMatch[1];
   const rest = localeMatch[2] ?? "";
   const segments = rest.split("/").filter(Boolean);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-locale", locale);
+  const passthroughInit = { request: { headers: requestHeaders } };
 
   if (segments.length > 0 && NON_REGION_ROOTS.includes(segments[0])) {
-    return NextResponse.next();
+    return NextResponse.next(passthroughInit);
   }
 
   const missingRegion = segments.length === 0 || REGION_SUB_ROUTES.includes(segments[0]);
@@ -39,7 +42,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return NextResponse.next(passthroughInit);
 }
 
 export const config = {

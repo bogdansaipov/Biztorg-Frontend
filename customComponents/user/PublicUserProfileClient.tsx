@@ -234,17 +234,26 @@ export default function PublicUserProfileClient() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleFollowToggle}
-                  disabled={followLoading}
-                  className={`flex-1 py-3.5 rounded-xl font-medium transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-                    profile.isFollowedByCurrentUser
-                      ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                      : "bg-primary hover:opacity-90 text-white"
-                  }`}
-                >
-                  {profile.isFollowedByCurrentUser ? t("unfollow") : t("follow")}
-                </button>
+                {isOwnProfile ? (
+                  <button
+                    onClick={() => router.push(`/${locale}/profile/edit`)}
+                    className="flex-1 py-3.5 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition cursor-pointer"
+                  >
+                    {t("editProfileButton")}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleFollowToggle}
+                    disabled={followLoading}
+                    className={`flex-1 py-3.5 rounded-xl font-medium transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                      profile.isFollowedByCurrentUser
+                        ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                        : "bg-primary hover:opacity-90 text-white"
+                    }`}
+                  >
+                    {profile.isFollowedByCurrentUser ? t("unfollow") : t("follow")}
+                  </button>
+                )}
                 <button
                   onClick={handleShare}
                   className="w-12 h-12 shrink-0 rounded-xl bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center cursor-pointer"
@@ -325,17 +334,26 @@ export default function PublicUserProfileClient() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleFollowToggle}
-                    disabled={followLoading}
-                    className={`w-full py-3 rounded-xl font-medium transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-                      profile.isFollowedByCurrentUser
-                        ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                        : "bg-primary hover:opacity-90 text-white"
-                    }`}
-                  >
-                    {profile.isFollowedByCurrentUser ? t("unfollow") : t("follow")}
-                  </button>
+                  {isOwnProfile ? (
+                    <button
+                      onClick={() => router.push(`/${locale}/profile/edit`)}
+                      className="w-full py-3 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition cursor-pointer"
+                    >
+                      {t("editProfileButton")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleFollowToggle}
+                      disabled={followLoading}
+                      className={`w-full py-3 rounded-xl font-medium transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                        profile.isFollowedByCurrentUser
+                          ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                          : "bg-primary hover:opacity-90 text-white"
+                      }`}
+                    >
+                      {profile.isFollowedByCurrentUser ? t("unfollow") : t("follow")}
+                    </button>
+                  )}
                 </>
               )}
             </div>

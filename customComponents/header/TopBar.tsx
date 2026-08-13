@@ -7,6 +7,7 @@ import { NavigationArrowIcon } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Region } from "@/types/region/region";
 import { useLocaleRegion } from "@/hooks/useLocaleRegion";
+import { useHeaderScroll, TOPBAR_HEIGHT_PX } from "@/hooks/useHeaderScroll";
 import { DEFAULT_REGION_SLUG, NON_REGION_ROOTS, setRegionCookie } from "@/lib/region";
 import { useNavigationPendingStore } from "@/stores/navigationPending.store";
 import { localized } from "@/lib/localized";
@@ -36,12 +37,29 @@ function UzbekFlagIcon({ className }: { className?: string }) {
       </clipPath>
       <g clipPath="url(#uz-flag-circle)">
         <rect width="20" height="20" fill="#fff" />
-        <rect width="20" height="6.2" fill="#1EB53A" />
-        <rect y="13.8" width="20" height="6.2" fill="#0099B5" />
-        <rect y="5.6" width="20" height="0.6" fill="#CE1126" />
+        <rect width="20" height="6.2" fill="#0099B5" />
+        <rect y="6.2" width="20" height="0.6" fill="#CE1126" />
         <rect y="13.2" width="20" height="0.6" fill="#CE1126" />
-        <circle cx="5" cy="5" r="1.6" fill="#fff" />
-        <circle cx="5.6" cy="4.7" r="1.4" fill="#0099B5" />
+        <rect y="13.8" width="20" height="6.2" fill="#1EB53A" />
+
+        <circle cx="5.2" cy="3.4" r="1.7" fill="#fff" />
+        <circle cx="5.9" cy="3.0" r="1.4" fill="#0099B5" />
+
+        <circle cx="8.1" cy="1.7" r="0.22" fill="#fff" />
+        <circle cx="9.1" cy="1.7" r="0.22" fill="#fff" />
+        <circle cx="10.1" cy="1.7" r="0.22" fill="#fff" />
+
+        <circle cx="7.6" cy="2.6" r="0.22" fill="#fff" />
+        <circle cx="8.6" cy="2.6" r="0.22" fill="#fff" />
+        <circle cx="9.6" cy="2.6" r="0.22" fill="#fff" />
+        <circle cx="10.6" cy="2.6" r="0.22" fill="#fff" />
+
+        <circle cx="8.1" cy="3.5" r="0.22" fill="#fff" />
+        <circle cx="9.1" cy="3.5" r="0.22" fill="#fff" />
+        <circle cx="10.1" cy="3.5" r="0.22" fill="#fff" />
+
+        <circle cx="8.6" cy="4.4" r="0.22" fill="#fff" />
+        <circle cx="9.6" cy="4.4" r="0.22" fill="#fff" />
       </g>
     </svg>
   );
@@ -54,6 +72,7 @@ export default function TopBar({ regions }: { regions: Region[] }) {
   const { locale, region } = useLocaleRegion();
   const setPending = useNavigationPendingStore((s) => s.setPending);
   const t = useTranslations("header");
+  const { topBarVisible } = useHeaderScroll();
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -85,38 +104,54 @@ export default function TopBar({ regions }: { regions: Region[] }) {
   };
 
   return (
-    <div className="bg-white border-b border-gray-100">
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-0 py-2 flex items-center justify-between">
-        <a
-          href={`/${locale}/${region}`}
-          className="font-semibold text-xl sm:text-2xl lg:text-3xl text-black/80 hover:opacity-80 transition"
-        >
-          BizTorgUz
-        </a>
+    <>
+      {/* Spacer — TopBar itself is `fixed` (removed from normal flow) so
+          it can overlay/slide independently of scroll position; this
+          reserves the same amount of space in the actual page layout so
+          nothing jumps when the page first loads. Height stays constant
+          regardless of topBarVisible — only the fixed bar's own
+          translateY animates, not this spacer. */}
+      <div style={{ height: TOPBAR_HEIGHT_PX }} />
 
-        <div className="flex items-center gap-3 sm:gap-6 text-black/80">
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1 hover:text-black transition cursor-pointer"
+      <div
+        className="fixed top-0 inset-x-0 z-[10000] bg-white border-b border-gray-100 transition-transform duration-300 ease-in-out"
+        style={{
+          height: TOPBAR_HEIGHT_PX,
+          transform: topBarVisible ? "translateY(0)" : "translateY(-100%)",
+        }}
+      >
+        <div className="h-full max-w-[1400px] mx-auto px-4 lg:px-0 flex items-center justify-between">
+          <a
+            href={`/${locale}/${region}`}
+            className="font-semibold text-xl sm:text-2xl lg:text-3xl text-black/80 hover:opacity-80 transition"
           >
-            <NavigationArrowIcon size={16} weight="fill" className="-scale-x-100 sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline text-sm sm:text-base">
-              {selectedRegion ? localized(selectedRegion, locale) : t("allRegions")}
-            </span>
-          </button>
+            BizTorgUz
+          </a>
 
-          <button
-            onClick={() => setLanguageOpen(true)}
-            className="flex items-center gap-1.5 hover:text-black transition cursor-pointer"
-          >
-            {locale === "uz" ? (
-              <UzbekFlagIcon className="w-5 h-5 shrink-0" />
-            ) : (
-              <RussianFlagIcon className="w-5 h-5 shrink-0" />
-            )}
-            <span className="text-sm sm:text-base">{locale.toUpperCase()}</span>
-            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+          <div className="flex items-center gap-3 sm:gap-6 text-black/80">
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-1 hover:text-black transition cursor-pointer"
+            >
+              <NavigationArrowIcon size={16} weight="fill" className="-scale-x-100 sm:w-5 sm:h-5" />
+              <span className="inline text-sm sm:text-base">
+                {selectedRegion ? localized(selectedRegion, locale) : t("allRegions")}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setLanguageOpen(true)}
+              className="flex items-center gap-1.5 hover:text-black transition cursor-pointer"
+            >
+              {locale === "uz" ? (
+                <UzbekFlagIcon className="w-5 h-5 shrink-0" />
+              ) : (
+                <RussianFlagIcon className="w-5 h-5 shrink-0" />
+              )}
+              <span className="text-sm sm:text-base">{locale.toUpperCase()}</span>
+              <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -130,6 +165,6 @@ export default function TopBar({ regions }: { regions: Region[] }) {
       )}
 
       <LanguageModal open={languageOpen} onClose={() => setLanguageOpen(false)} />
-    </div>
+    </>
   );
 }

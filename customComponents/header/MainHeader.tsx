@@ -1,18 +1,16 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Heart,
-  MessageCircle,
-  User,
-  Plus,
-  Search,
-  Megaphone,
-  X,
-  Clock,
-} from "lucide-react";
+  HeartIcon,
+  MegaphoneIcon,
+  ChatCircleIcon,
+  UserIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
+import { Search, X, Clock } from "lucide-react";
 import { useAuthModal } from "@/context/AuthModalContext";
 import { useCategoriesMenu } from "@/context/CategoriesMenuContext";
 import { useAuthStore } from "@/stores/auth.store";
@@ -25,6 +23,7 @@ import { logoutUser } from "@/services/auth.service";
 import { filterProducts } from "@/services/product.service";
 import { Product } from "@/types/Product";
 import { Currency } from "@/enums/CurrencyEnum";
+import { TOPBAR_HEIGHT_PX, useHeaderScroll } from "@/hooks/useHeaderScroll";
 
 const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
 
@@ -83,6 +82,7 @@ export default function MainHeader() {
   const { open } = useAuthModal();
   const { open: openCategories } = useCategoriesMenu();
   const router = useRouter();
+  const pathname = usePathname();
   const t = useTranslations("header");
   const tLogout = useTranslations("logoutConfirmModal");
 
@@ -245,8 +245,31 @@ export default function MainHeader() {
     }
   };
 
+  const { scrolled, topBarVisible } = useHeaderScroll();
+
+  // Active-route detection for the nav icons — exact-match only, so
+  // /profile/favorites and /profile/listings don't also light up the
+  // plain /profile (Account) icon. "Messages" has no dedicated route
+  // (opens InDevelopmentModal instead), so it has no active state.
+  const favoritesActive = pathname === `/${locale}/profile/favorites`;
+  const listingsActive = pathname === `/${locale}/profile/listings`;
+  const profileActive = pathname === `/${locale}/profile`;
+
+  // Inactive nav icons sit at a lighter gray; active ones switch to a
+  // filled Phosphor weight plus this same 80%-dark tone used elsewhere
+  // in the app for "dark but not pure black" text (text-black/80).
+  const navItemClass = (active: boolean) =>
+    `flex flex-col items-center font-medium cursor-pointer transition ${
+      active ? "text-black/80" : "text-gray-800 hover:text-black/80"
+    }`;
+
   return (
-    <div className="sticky top-0 z-9999 bg-white">
+     <div
+      className={`sticky z-9999 bg-white transition-[top,border-color] duration-300 ease-in-out border-b ${
+        scrolled ? "border-gray-200" : "border-transparent"
+      }`}
+      style={{ top: topBarVisible ? TOPBAR_HEIGHT_PX : 0 }}
+    >
       <div className="max-w-[1400px] mx-auto px-4 lg:px-0 py-3 flex items-center gap-2">
         <button
           onClick={openCategories}
@@ -380,37 +403,35 @@ export default function MainHeader() {
           )}
         </div>
 
-        <div className="hidden lg:flex items-center gap-10 text-black/80 ml-4">
-          <button
-            onClick={handleFavoritesClick}
-            className="flex flex-col items-center font-medium cursor-pointer hover:text-black transition"
-          >
-            <Heart className="w-5.5 h-5.5 mb-0.5" />
-            {t("favorites")}
-          </button>
+        <div className="hidden lg:flex items-center gap-10 ml-4">
+     <button onClick={handleFavoritesClick} className={navItemClass(favoritesActive)}>
+  <HeartIcon
+    weight={favoritesActive ? "fill" : "regular"}
+    color={favoritesActive ? "#ef4444" : undefined}
+    className="w-5.5 h-5.5 mb-0.5"
+  />
+  {t("favorites")}
+</button>
 
-          <button
-            onClick={handleListingsClick}
-            className="flex flex-col items-center font-medium cursor-pointer hover:text-black transition"
-          >
-            <Megaphone className="w-5.5 h-5.5 mb-0.5" />
+          <button onClick={handleListingsClick} className={navItemClass(listingsActive)}>
+            <MegaphoneIcon
+              weight={listingsActive ? "fill" : "regular"}
+              className="w-5.5 h-5.5 mb-0.5"
+            />
             {t("listings")}
           </button>
 
-          <button
-            onClick={() => setMessagesInfoOpen(true)}
-            className="flex flex-col items-center font-medium cursor-pointer hover:text-black transition"
-          >
-            <MessageCircle className="w-5.5 h-5.5 mb-0.5" />
+          <button onClick={() => setMessagesInfoOpen(true)} className={navItemClass(false)}>
+            <ChatCircleIcon weight="regular" className="w-5.5 h-5.5 mb-0.5" />
             {t("messages")}
           </button>
 
           <div className="relative">
-            <button
-              onClick={handleAccountClick}
-              className="flex flex-col items-center font-medium cursor-pointer hover:text-black transition"
-            >
-              <User className="w-5.5 h-5.5 mb-0.5" />
+            <button onClick={handleAccountClick} className={navItemClass(profileActive)}>
+              <UserIcon
+                weight={profileActive ? "fill" : "regular"}
+                className="w-5.5 h-5.5 mb-0.5"
+              />
               {isLoggedIn ? t("profile") : t("login")}
             </button>
 
@@ -425,11 +446,11 @@ export default function MainHeader() {
 
           <button
             onClick={handleSellClick}
-            className="flex items-center gap-3 bg-gray-900 text-white px-6 py-3 rounded-3xl text-base font-medium cursor-pointer hover:bg-gray-800 transition"
+            className="flex items-center gap-3 bg-gray-900 text-white px-6 py-3 rounded-xl text-base font-medium cursor-pointer hover:bg-gray-800 transition"
           >
             {t("postAd")}
-            <span className="flex items-center justify-center w-6 h-6 bg-white rounded-full">
-              <Plus className="w-4.5 h-4.5 text-gray-900" />
+            <span className="flex items-center justify-center w-5 h-5 bg-white rounded-full">
+              <PlusIcon weight="bold" className="w-3.5 h-3.5 text-gray-900" />
             </span>
           </button>
         </div>

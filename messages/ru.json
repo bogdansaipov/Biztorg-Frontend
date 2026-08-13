@@ -226,7 +226,8 @@
   "activeTab": "Активные {count}",
   "noProducts": "У этого пользователя пока нет объявлений.",
   "noReviews": "Нет отзывов",
-  "profileFallbackTitle": "Профиль на BizTorg"
+  "profileFallbackTitle": "Профиль на BizTorg",
+  "editProfileButton": "Отредактировать"
 },
 "userRatings": {
   "title": "Отзывы о товарах пользователя",
@@ -484,5 +485,26 @@
   "added": "Добавлено в избранное",
   "removeAria": "Убрать из избранного",
   "addAria": "Добавить в избранное"
+},
+"session": {
+  "expired": "Сессия истекла. Пожалуйста, войдите снова."
+},
+"footer": {
+  "regionsHeading": "BizTorg по всему Узбекистану",
+  "showMoreRegions": "Ещё {count}",
+  "showLess": "Свернуть",
+  "companyHeading": "Компания",
+  "aboutUs": "О компании",
+  "support": "Помощь",
+  "blog": "Блог",
+  "allRegions": "Все регионы",
+  "rules": "Правила платформы",
+  "services": "Услуги",
+  "linksHeading": "Разделы",
+  "downloadApp": "Мобильное приложение",
+  "socialLabel": "Мы в соцсетях",
+  "copyright": "© {year} ООО «SHORTWAY». Все права защищены.",
+  "privacyPolicy": "Политика конфиденциальности",
+  "termsOfService": "Пользовательское соглашение"
 }
 }

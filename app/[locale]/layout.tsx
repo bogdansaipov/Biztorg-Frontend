@@ -8,6 +8,8 @@ import { CategoriesMenuProvider } from "@/context/CategoriesMenuContext";
 import FavoritesHydrator from "@/components/FavoritesHydrator";
 import AuthHydrator from "@/components/AuthHydrator";
 import Toast from "@/components/Toast";
+import SessionExpiredToast from "@/components/SessionExpiredToast";
+import FooterWrapper from "@/components/FooterWrapper";
 
 const SUPPORTED_LOCALES = ["ru", "uz"] as const;
 type Locale = (typeof SUPPORTED_LOCALES)[number];
@@ -28,11 +30,6 @@ export default async function LocaleLayout({
     notFound();
   }
 
-  // Required because we're using custom middleware instead of next-intl's
-  // own — without this, requestLocale in i18n/request.ts has no way to
-  // know which locale was actually requested and falls through to its
-  // own notFound(), which is what was producing the 404 on every /ru/...
-  // and /uz/... route regardless of whether the page itself existed.
   setRequestLocale(locale);
 
   const messages = await getMessages();
@@ -43,10 +40,12 @@ export default async function LocaleLayout({
         <AuthModalProvider>
           <AuthHydrator />
           <FavoritesHydrator />
+          <SessionExpiredToast />
           <Header />
           <main className="pb-20 lg:pb-0">
             {children}
           </main>
+          <FooterWrapper />
           <MobileBottomNav />
           <Toast />
         </AuthModalProvider>
