@@ -38,6 +38,8 @@ export async function generateSitemaps() {
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
   const numericId = Number(id);
 
+  console.log("sitemap(): called with", { rawId: id, rawType: typeof id, numericId });
+
   if (numericId === 0) {
     return staticEntries();
   }
@@ -60,7 +62,12 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
 }
 
 async function staticEntries(): Promise<MetadataRoute.Sitemap> {
+  console.log("staticEntries: fetching categories + regions...");
   const [categories, regions] = await Promise.all([fetchAllCategoriesServer(), fetchRegionsServer()]);
+  console.log("staticEntries: categories/regions OK", {
+    categoriesCount: categories.length,
+    regionsCount: regions.length,
+  });
 
   let entries: MetadataRoute.Sitemap = [
     ...localizedEntry(`/${DEFAULT_REGION_SLUG}`, { changeFrequency: "daily", priority: 1 }),
@@ -79,7 +86,12 @@ async function staticEntries(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
+  console.log("staticEntries: fetching region-category combinations...", {
+    minCount: MIN_PRODUCTS_TO_INDEX,
+  });
   const combinations = await getRegionCategoryCombinations(MIN_PRODUCTS_TO_INDEX);
+  console.log("staticEntries: combinations OK", { count: combinations.length });
+
   for (const combo of combinations) {
     const category = categories.find((c) => c.id === combo.categoryId);
     const region = regions.find((r) => r.id === combo.regionId);
@@ -97,5 +109,6 @@ async function staticEntries(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
+  console.log("staticEntries: done, total entries:", entries.length);
   return entries;
 }
