@@ -34,12 +34,15 @@ export async function generateSitemaps() {
   return Array.from({ length: productShardCount + 1 }, (_, i) => ({ id: i }));
 }
 
+
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
-  if (id === 0) {
+  const numericId = Number(id);
+
+  if (numericId === 0) {
     return staticEntries();
   }
 
-  const { items } = await getProductsForSitemap(id, PRODUCTS_PER_SHARD);
+  const { items } = await getProductsForSitemap(numericId, PRODUCTS_PER_SHARD);
 
   return items.flatMap((item) => {
     const languages = Object.fromEntries(
