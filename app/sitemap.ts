@@ -9,8 +9,16 @@ import { LEGAL_DOCS } from "./[locale]/content/legal";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biztorg.uz";
 const LOCALES = ["ru", "uz"] as const;
 
-const PRODUCTS_PER_SHARD = 20000;
-
+// Google's sitemap spec caps a single file at 50,000 URLs. We're nowhere
+// near that yet (single digits of products), so — unlike the previous
+// generateSitemaps()-based sharded version — this single-file sitemap is
+// intentionally NOT split into multiple id-based files. That sharding
+// mechanism hit a Next.js 16 bug where the dynamic route's `id` param
+// arrives as an internal Next.js request-context object instead of the
+// number it's typed as, breaking every shard unconditionally regardless of
+// Turbopack/webpack. Once product count approaches five figures, re-introduce
+// sharding (check Next.js changelogs first -- this may be fixed upstream by
+// then).
 function localizedEntry(
   pathSuffix: string,
   opts: { changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number },
@@ -27,47 +35,12 @@ function localizedEntry(
   }));
 }
 
-export async function generateSitemaps() {
-  const { pagination } = await getProductsForSitemap(1, PRODUCTS_PER_SHARD);
-  const productShardCount = Math.max(pagination.pages, 1);
-
-  return Array.from({ length: productShardCount + 1 }, (_, i) => ({ id: i }));
-}
-
-
-export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
-  const numericId = Number(id);
-
-  console.log("sitemap(): called with", { rawId: id, rawType: typeof id, numericId });
-
-  if (numericId === 0) {
-    return staticEntries();
-  }
-
-  const { items } = await getProductsForSitemap(numericId, PRODUCTS_PER_SHARD);
-
-  return items.flatMap((item) => {
-    const languages = Object.fromEntries(
-      LOCALES.map((l) => [l, `${SITE_URL}/${l}/obyavlenie/${item.slug}`]),
-    );
-
-    return LOCALES.map((locale) => ({
-      url: `${SITE_URL}/${locale}/obyavlenie/${item.slug}`,
-      lastModified: item.updatedAt,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-      alternates: { languages },
-    }));
-  });
-}
-
-async function staticEntries(): Promise<MetadataRoute.Sitemap> {
-  console.log("staticEntries: fetching categories + regions...");
-  const [categories, regions] = await Promise.all([fetchAllCategoriesServer(), fetchRegionsServer()]);
-  console.log("staticEntries: categories/regions OK", {
-    categoriesCount: categories.length,
-    regionsCount: regions.length,
-  });
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [categories, regions, { items: products }] = await Promise.all([
+    fetchAllCategoriesServer(),
+    fetchRegionsServer(),
+    getProductsForSitemap(1, 20000),
+  ]);
 
   let entries: MetadataRoute.Sitemap = [
     ...localizedEntry(`/${DEFAULT_REGION_SLUG}`, { changeFrequency: "daily", priority: 1 }),
@@ -86,12 +59,7 @@ async function staticEntries(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
-  console.log("staticEntries: fetching region-category combinations...", {
-    minCount: MIN_PRODUCTS_TO_INDEX,
-  });
   const combinations = await getRegionCategoryCombinations(MIN_PRODUCTS_TO_INDEX);
-  console.log("staticEntries: combinations OK", { count: combinations.length });
-
   for (const combo of combinations) {
     const category = categories.find((c) => c.id === combo.categoryId);
     const region = regions.find((r) => r.id === combo.regionId);
@@ -109,6 +77,20 @@ async function staticEntries(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
-  console.log("staticEntries: done, total entries:", entries.length);
+  for (const item of products) {
+    const languages = Object.fromEntries(
+      LOCALES.map((l) => [l, `${SITE_URL}/${l}/obyavlenie/${item.slug}`]),
+    );
+    entries = entries.concat(
+      LOCALES.map((locale) => ({
+        url: `${SITE_URL}/${locale}/obyavlenie/${item.slug}`,
+        lastModified: item.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+        alternates: { languages },
+      })),
+    );
+  }
+
   return entries;
 }
