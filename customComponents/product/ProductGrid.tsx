@@ -45,11 +45,15 @@ function getProductBadges(product: Product, labels: BadgeLabels): ProductBadge[]
   return badges;
 }
 
+  const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
+
 function ProductCardBadges({ product, labels }: { product: Product; labels: BadgeLabels }) {
   const badges = getProductBadges(product, labels);
   if (badges.length === 0) return null;
 
   const [primary, ...rest] = badges;
+
+
 
   return (
     <div className="absolute top-2 left-2 flex items-center gap-1">
@@ -134,7 +138,7 @@ export default function ProductGrid ({initialProducts, initialPage, totalPages, 
             >
               <div className="relative aspect-square rounded-2xl overflow-hidden">
                 <Image
-                  src={`https://169-58-13-208.nip.io/public${mainImage}`}
+                  src={`${MEDIA_BASE}/public${mainImage}`}
                   alt={product.name}
                   fill
                   className="object-cover"

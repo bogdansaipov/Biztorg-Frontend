@@ -14,7 +14,7 @@ import { useToastStore } from "@/stores/toast.store";
 import { localized } from "@/lib/localized";
 import { formatProductDate } from "@/lib/formatDate";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 const MANAGE_SHEET_Z_INDEX = 10000;
 
@@ -235,7 +235,7 @@ export default function FavoriteProductCard({
         <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100">
           {mainImage && (
             <Image
-              src={`${MEDIA_BASE}${mainImage}`}
+              src={`${MEDIA_BASE}/public/${mainImage}`}
               alt={product.name}
               fill
               className="object-cover"
@@ -289,7 +289,7 @@ export default function FavoriteProductCard({
             <Link href={productHref} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0">
               {mainImage && (
                 <Image
-                  src={`${MEDIA_BASE}${mainImage}`}
+                  src={`${MEDIA_BASE}/public${mainImage}`}
                   alt={product.name}
                   fill
                   className="object-cover"

@@ -30,7 +30,7 @@ import { localized } from "@/lib/localized";
 import { formatJoinDate } from "@/lib/formatJoinDate";
 import { formatProductDate } from "@/lib/formatDate";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 function ShopStarRow({ rating }: { rating: number }) {
   const filledCount = Math.round(rating);
@@ -203,7 +203,7 @@ export default function ShopProfileClient() {
     );
   }
 
-  const bannerSrc = shop?.bannerUrl ? `${MEDIA_BASE}${shop.bannerUrl}` : null;
+  const bannerSrc = shop?.bannerUrl ? `${MEDIA_BASE}/public${shop.bannerUrl}` : null;
   const isVerified = shop?.verificationStatus === "VERIFIED";
   const joinDate = shop ? formatJoinDate(shop.createdAt, locale) : "";
 
@@ -236,7 +236,7 @@ export default function ShopProfileClient() {
                 <div className="rounded-xl hover:bg-gray-100 transition p-2">
                   <div className="relative aspect-square rounded-2xl overflow-hidden">
                     <Image
-                      src={`${MEDIA_BASE}${mainImage}`}
+                      src={`${MEDIA_BASE}/public${mainImage}`}
                       alt={product.name}
                       fill
                       className="object-cover"

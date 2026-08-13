@@ -7,7 +7,7 @@ import { createShop, updateShop, type BusinessType } from "@/services/shop.servi
 import { ShopEditData } from "@/types/responses/shop.response";
 
 const SECTION_CARD = "bg-white border border-gray-100 rounded-2xl p-6 sm:p-8";
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 interface Props {
   mode?: "create" | "edit";
@@ -29,7 +29,7 @@ export default function CreateShopForm({ mode = "create", shopId, initialData, o
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(
-    initialData?.bannerUrl ? `${MEDIA_BASE}${initialData.bannerUrl}` : null,
+    initialData?.bannerUrl ? `${MEDIA_BASE}/public${initialData.bannerUrl}` : null,
   );
 
   const [shopName, setShopName] = useState(initialData?.shopName ?? "");

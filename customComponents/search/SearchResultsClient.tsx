@@ -36,7 +36,7 @@ import CircularLoader from "@/components/ui/CircularLoader";
 import CategorySelectMenu from "@/customComponents/createProduct/CategorySelectMenu";
 import RegionSelectMenu from "@/customComponents/createProduct/RegionSelectMenu";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+  const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 const HOVER_CLOSE_DELAY = 200;
 
 interface ProductBadge {
@@ -702,7 +702,7 @@ export default function SearchResultsClient({
                     <div className="rounded-xl hover:bg-gray-100 transition p-2">
                       <div className="relative aspect-square rounded-2xl overflow-hidden">
                         <Image
-                          src={`${MEDIA_BASE}${mainImage}`}
+                          src={`${MEDIA_BASE}/public${mainImage}`}
                           alt={product.name}
                           fill
                           className="object-cover"

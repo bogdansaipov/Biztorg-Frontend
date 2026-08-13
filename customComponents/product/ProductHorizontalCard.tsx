@@ -19,7 +19,11 @@ export function ProductHorizontalCard({
   priceUzsLabel: string;
   defaultRegionLabel: string;
 }) {
-  const image = `https://169-58-13-208.nip.io/public/${product.images[0].imageUrl}`;
+
+
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
+
+const image = `${MEDIA_BASE}/public${product.images[0].imageUrl}`;
 
   const CARD_WIDTH = "w-[calc(50%-0.25rem)] sm:w-[270px]";
 

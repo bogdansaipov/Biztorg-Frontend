@@ -25,7 +25,7 @@ import { Product } from "@/types/Product";
 import { Currency } from "@/enums/CurrencyEnum";
 import { TOPBAR_HEIGHT_PX, useHeaderScroll } from "@/hooks/useHeaderScroll";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 const RECENT_SEARCHES_KEY = "recentSearches";
 const RECENT_SEARCHES_LIMIT = 5;
@@ -364,7 +364,7 @@ export default function MainHeader() {
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition cursor-pointer"
                           >
                             <img
-                              src={`${MEDIA_BASE}${mainImage}`}
+                              src={`${MEDIA_BASE}/public${mainImage}`}
                               alt={product.name}
                               className="w-10 h-10 rounded-lg object-cover shrink-0 bg-gray-100"
                             />

@@ -48,6 +48,10 @@ import { formatJoinDate } from "@/lib/formatJoinDate";
 const LIGHTBOX_Z_INDEX = 2147483646;
 const PHONE_MODAL_Z_INDEX = 2147483647;
 const REPORT_SHEET_Z_INDEX = 2147483647;
+
+
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
+
 const LIGHTBOX_MAX_WIDTH = "max-w-[1100px]";
 
 function StarRating({
@@ -514,9 +518,9 @@ export default function ProductDetails({ product }: { product: Product }) {
   useEffect(() => setMounted(true), []);
 
   const images =
-    product.images.length > 0
-      ? product.images.map((i) => `https://169-58-13-208.nip.io/public${i.imageUrl}`)
-      : ["/images/default.png"];
+  product.images.length > 0
+    ? product.images.map((i) => `${MEDIA_BASE}/public/${i.imageUrl}`)
+    : ["/images/default.png"];
 
   // TODO: groupAttributes' return shape wasn't available in this pass — it
   // currently only carries the Russian name/values through. Once its
@@ -529,10 +533,10 @@ export default function ProductDetails({ product }: { product: Product }) {
   const sellerDisplayName = isShopSeller ? product.shop!.shopName : product.contactName;
   const sellerProfileHref = isShopSeller ? `/${locale}/shop/${product.shopId}` : `/${locale}/user/${product.userId}`;
 
-  const shopBannerUrl =
-    isShopSeller && product.shop!.bannerUrl
-      ? `https://169-58-13-208.nip.io/public${product.shop!.bannerUrl}`
-      : null;
+const shopBannerUrl =
+  isShopSeller && product.shop!.bannerUrl
+    ? `${MEDIA_BASE}/public${product.shop!.bannerUrl}`
+    : null;
 
   const sellerSinceDate = formatJoinDate(
     product.shop ? product.shop.createdAt : product.user.createdAt,

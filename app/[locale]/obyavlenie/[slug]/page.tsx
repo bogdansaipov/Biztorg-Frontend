@@ -8,7 +8,7 @@ import { Currency } from "@/enums/CurrencyEnum";
 import { localized } from "@/lib/localized";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biztorg.uz";
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+  const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 interface Props {
   params: Promise<{ locale: string; slug: string }>;
@@ -72,7 +72,7 @@ export default async function ProductPage({ params }: Props) {
     "@type": "Product",
     name: product.name,
     description: product.description || product.name,
-    image: product.images.map((i) => `${MEDIA_BASE}${i.imageUrl}`),
+    image: product.images.map((i) => `${MEDIA_BASE}/public${i.imageUrl}`),
     offers: {
       "@type": "Offer",
       url: canonicalUrl,

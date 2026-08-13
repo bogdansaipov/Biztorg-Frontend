@@ -9,7 +9,7 @@ import { getUserRatings } from "@/services/rating.service";
 import { ProductRating } from "@/types/responses/rating.response";
 import { formatReviewDate } from "@/lib/formatReviewDate";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 function RatingBarRow({ starLevel, count, total }: { starLevel: number; count: number; total: number }) {
   const pct = total > 0 ? (count / total) * 100 : 0;
@@ -68,7 +68,7 @@ function ReviewCard({ review, locale }: { review: ProductRating; locale: string 
         {review.product.mainImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`${MEDIA_BASE}${review.product.mainImageUrl}`}
+            src={`${MEDIA_BASE}/public${review.product.mainImageUrl}`}
             alt={review.product.name}
             className="w-16 h-16 rounded-lg object-cover shrink-0"
           />

@@ -10,7 +10,7 @@ import { getMyShops } from "@/services/shop.service";
 import { MyShopItem } from "@/types/responses/shop.response";
 import { useAuthStore } from "@/stores/auth.store";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io";
 
 interface User {
   name?: string | null;
@@ -119,7 +119,7 @@ export default function ProfileContactsSection({
                     {shop.bannerUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`${MEDIA_BASE}${shop.bannerUrl}`}
+                        src={`${MEDIA_BASE}/public${shop.bannerUrl}`}
                         alt={shop.shopName}
                         className="w-full h-full object-cover"
                       />
