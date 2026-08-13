@@ -15,8 +15,7 @@ interface Props {
 }
 
 const MEDIA_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
-  "https://169-58-13-208.nip.io"
+  process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io"
 
 const COLLAPSED_COUNT = 5
 

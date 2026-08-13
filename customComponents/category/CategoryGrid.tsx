@@ -15,8 +15,7 @@ interface Props {
 const VISIBLE_COUNT = 11
 
 const MEDIA_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ??
-  "https://169-58-13-208.nip.io"
+  process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://169-58-13-208.nip.io"
 
 const ALL_CATEGORIES_MARKER = "__all__"
 
