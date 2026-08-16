@@ -4,8 +4,7 @@ import { getParentCategories } from "@/services/category.service";
 import { REGION_COOKIE_NAME, DEFAULT_REGION_SLUG } from "@/lib/region";
 import { localized } from "@/lib/localized";
 
-const MEDIA_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ?? "https://169-58-13-208.nip.io";
+const MEDIA_BASE = (process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://api.biztorg.uz");
 
 const LOCALE_COOKIE_NAME = "locale";
 

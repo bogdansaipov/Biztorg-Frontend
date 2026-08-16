@@ -10,7 +10,7 @@ import { getShopProducts } from "@/services/shop.service";
 import { Product } from "@/types/Product";
 import { localized } from "@/lib/localized";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://api.biztorg.uz"
 
 export default function SelectShopProductToRatePage() {
   const params = useParams<{ id: string }>();
@@ -71,7 +71,7 @@ export default function SelectShopProductToRatePage() {
                   <div className="relative w-16 h-16 lg:w-20 lg:h-20 rounded-xl overflow-hidden bg-gray-50 shrink-0">
                     {mainImage && (
                       <Image
-                        src={`${MEDIA_BASE}${mainImage}`}
+                        src={`${MEDIA_BASE}/public${mainImage}`}
                         alt={product.name}
                         fill
                         className="object-cover"

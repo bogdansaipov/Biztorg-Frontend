@@ -3,7 +3,7 @@ import { AttributeGroupedValues } from "@/types/attribute/attribute";
 import { Region } from "@/types/region/region";
 import { ProductFilterParams, ProductsFilterData } from "@/types/responses/product-filter.response";
 
-const API_BASE = "https://169-58-13-208.nip.io/api";
+const API_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://api.biztorg.uz";
 
 async function serverGet<T>(
   path: string,

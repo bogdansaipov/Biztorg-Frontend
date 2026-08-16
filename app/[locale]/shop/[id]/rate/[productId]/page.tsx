@@ -12,7 +12,7 @@ import { Product } from "@/types/Product";
 import { ArrowLeftIcon, XIcon } from "lucide-react";
 import CircularLoader from "@/components/ui/CircularLoader";
 
-const MEDIA_BASE = "https://169-58-13-208.nip.io/public";
+const MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_URL ?? "https://api.biztorg.uz"
 const MAX_IMAGES = 3;
 
 export default function RateShopProductPage() {
@@ -112,7 +112,7 @@ export default function RateShopProductPage() {
                 <div className="relative w-20 h-20 lg:w-24 lg:h-24 rounded-xl overflow-hidden bg-gray-100 mb-3">
                   {mainImage && (
                     <Image
-                      src={`${MEDIA_BASE}${mainImage}`}
+                      src={`${MEDIA_BASE}/public${mainImage}`}
                       alt={product.name}
                       fill
                       className="object-cover"
