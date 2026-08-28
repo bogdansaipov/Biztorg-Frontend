@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToastStore } from "@/stores/toast.store";
 import { approveProduct, rejectProduct } from "@/services/admin/product.service";
 
-export default function ProductModerationActions({ productId }: { productId: string }) {
-  const router = useRouter();
+interface Props {
+  productId: string;
+  onDone: () => void;
+}
+
+export default function ProductModerationActions({ productId, onDone }: Props) {
   const showToast = useToastStore((s) => s.show);
   const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
 
@@ -16,7 +19,7 @@ export default function ProductModerationActions({ productId }: { productId: str
     try {
       await approveProduct(productId);
       showToast({ title: "Объявление одобрено", type: "success" });
-      router.refresh();
+      onDone();
     } catch (err) {
       console.error("Failed to approve product", err);
       showToast({ title: "Не удалось одобрить объявление", type: "error" });
@@ -37,7 +40,7 @@ export default function ProductModerationActions({ productId }: { productId: str
     try {
       await rejectProduct(productId, reason.trim());
       showToast({ title: "Объявление отклонено", type: "success" });
-      router.refresh();
+      onDone();
     } catch (err) {
       console.error("Failed to reject product", err);
       showToast({ title: "Не удалось отклонить объявление", type: "error" });

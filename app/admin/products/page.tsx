@@ -1,5 +1,8 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { adminServerGet } from "@/lib/admin-server-api";
+import { api } from "@/helpers/api";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -8,19 +11,40 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import StatusBadge from "@/components/admin/StatusBadge";
 import ProductModerationActions from "@/components/admin/ProductModerationActions";
 import type { AdminProductsResponse } from "@/services/admin/product.service";
 
-// Admin data changes on every approve/reject action — never statically
-// cached, matches adminServerGet's cache: 'no-store'.
-export const dynamic = "force-dynamic";
+export default function AdminProductsPendingPage() {
+  const [data, setData] = useState<AdminProductsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export default async function AdminProductsPendingPage() {
-  const data = await adminServerGet<AdminProductsResponse>("/admin/products/pending", {
-    limit: 50,
-  });
+  // Client-side fetch, same reasoning as AdminGate: a Server Component
+  // can't see the api.biztorg.uz-scoped auth cookie, so this can't be a
+  // server-rendered page the way it was before.
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get<{ data: AdminProductsResponse }>(
+        "/admin/products/pending",
+        { params: { limit: 50 } },
+      );
+      setData(res.data.data);
+    } catch (err) {
+      console.error("Failed to load pending products", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading || !data) {
+    return <p className="text-sm text-muted-foreground">Загрузка…</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -91,7 +115,7 @@ export default async function AdminProductsPendingPage() {
                       <StatusBadge status={product.moderationStatus} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <ProductModerationActions productId={product.id} />
+                      <ProductModerationActions productId={product.id} onDone={load} />
                     </TableCell>
                   </TableRow>
                 );
