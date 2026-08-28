@@ -5,9 +5,29 @@ const DEFAULT_LOCALE = "ru";
 const REGION_COOKIE_NAME = "region";
 const NON_REGION_ROOTS = ["obyavlenie", "profile", "shop", "user", "legal"];
 const REGION_SUB_ROUTES = ["category", "search"];
+const ADMIN_HOST_PREFIX = "admin.";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const hostname = req.headers.get("host") ?? "";
+
+  // admin.biztorg.uz: internally served from app/admin, no locale/region
+  // prefixing — the admin panel is a single-locale internal tool, not part
+  // of the public site's i18n routing. This runs before anything else so
+  // none of the locale/region logic below ever touches admin requests.
+  if (hostname.startsWith(ADMIN_HOST_PREFIX)) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/admin${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // app/admin only exists to be served via the rewrite above. Block it on
+  // the public host so biztorg.uz/admin/... 404s instead of exposing the
+  // panel at a second, unintended URL.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   const localeMatch = pathname.match(/^\/(ru|uz)(\/.*)?$/);
 
   if (!localeMatch) {

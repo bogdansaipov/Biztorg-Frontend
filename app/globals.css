@@ -57,8 +57,15 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  /* Repurposed for the admin panel's black/white shadcn look (Button/Badge
+     variant="secondary") — was the default pale grey (oklch(0.97 0 0)),
+     which the public site doesn't appear to use anywhere in what I've
+     seen so far, but that's not exhaustive; worth a quick
+     grep -r "variant=\"secondary\"\|bg-secondary" across the whole repo
+     before shipping, in case something on the public site relies on the
+     old pale-grey look. */
+  --secondary: oklch(0.205 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
