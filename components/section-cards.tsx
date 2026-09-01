@@ -1,6 +1,9 @@
-import { TrendingDownIcon, TrendingUpIcon } from "lucide-react"
+"use client"
 
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import { AlertCircleIcon, CheckCircle2Icon } from "lucide-react"
+
+import { api } from "@/helpers/api"
 import {
   Card,
   CardDescription,
@@ -8,92 +11,110 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+
+interface AdminOverview {
+  today: { newUsers: number; newProducts: number; views: number };
+  last7Days: { newUsers: number; newProducts: number; views: number };
+  last30Days: { newUsers: number; newProducts: number; views: number };
+  pending: {
+    productsAwaitingModeration: number;
+    reportsAwaitingReview: number;
+    shopsAwaitingVerification: number;
+  };
+  totals: { users: number; products: number; shops: number };
+}
 
 export function SectionCards() {
+  const [data, setData] = useState<AdminOverview | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ data: AdminOverview }>("/admin/analytics/overview")
+      .then((res) => setData(res.data.data))
+      .catch((err) => console.error("Failed to load overview", err));
+  }, []);
+
+  const pendingProducts = data?.pending.productsAwaitingModeration ?? 0;
+  const pendingReports = data?.pending.reportsAwaitingReview ?? 0;
+
   return (
     <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Total Revenue</CardDescription>
+          <CardDescription>На модерации</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            $1,250.00
+            {data ? pendingProducts : <Skeleton className="h-8 w-12" />}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
-            </Badge>
+            {data ? (
+              pendingProducts > 0 ? (
+                <AlertCircleIcon className="size-4 text-amber-500" />
+              ) : (
+                <CheckCircle2Icon className="size-4 text-emerald-500" />
+              )
+            ) : (
+              <Skeleton className="size-4 rounded-full" />
+            )}
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <TrendingUpIcon className="size-4" />
-          </div>
           <div className="text-muted-foreground">
-            Visitors for the last 6 months
+            {data ? (pendingProducts > 0 ? "Ожидают проверки" : "Очередь пуста") : <Skeleton className="h-4 w-24" />}
           </div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>New Customers</CardDescription>
+          <CardDescription>Жалобы</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            1,234
+            {data ? pendingReports : <Skeleton className="h-8 w-12" />}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingDownIcon className="size-3" />
-              -20%
-            </Badge>
+            {data ? (
+              pendingReports > 0 ? (
+                <AlertCircleIcon className="size-4 text-amber-500" />
+              ) : (
+                <CheckCircle2Icon className="size-4 text-emerald-500" />
+              )
+            ) : (
+              <Skeleton className="size-4 rounded-full" />
+            )}
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <TrendingDownIcon className="size-4" />
-          </div>
           <div className="text-muted-foreground">
-            Acquisition needs attention
+            {data ? (pendingReports > 0 ? "Требуют рассмотрения" : "Нет новых жалоб") : <Skeleton className="h-4 w-24" />}
           </div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Active Accounts</CardDescription>
+          <CardDescription>Новые пользователи</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            45,678
+            {data ? data.last7Days.newUsers : <Skeleton className="h-8 w-12" />}
           </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
-            </Badge>
-          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <TrendingUpIcon className="size-4" />
+          <div className="text-muted-foreground">
+            {data ? "За последние 7 дней" : <Skeleton className="h-4 w-24" />}
           </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Growth Rate</CardDescription>
+          <CardDescription>Просмотры</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            4.5%
+            {data ? data.last7Days.views : <Skeleton className="h-8 w-12" />}
           </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +4.5%
-            </Badge>
-          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance <TrendingUpIcon className="size-4" />
+          <div className="text-muted-foreground">
+            {data ? "За последние 7 дней" : <Skeleton className="h-4 w-24" />}
           </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
         </CardFooter>
       </Card>
     </div>

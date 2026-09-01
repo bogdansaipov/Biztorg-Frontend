@@ -4,25 +4,16 @@ import * as React from "react"
 import {
   ArrowUpCircleIcon,
   BarChartIcon,
-  CameraIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileCodeIcon,
-  FileIcon,
-  FileTextIcon,
-  FolderIcon,
-  HelpCircleIcon,
+  FlagIcon,
   LayoutDashboardIcon,
-  ListIcon,
-  SearchIcon,
-  SettingsIcon,
+  PackageIcon,
+  StoreIcon,
   UsersIcon,
 } from "lucide-react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { useAuthStore } from "@/stores/auth.store"
 import {
   Sidebar,
   SidebarContent,
@@ -32,125 +23,62 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import Link from "next/link"
 
+// Real Biztorg admin sections, matching the backend build order
+// (products/reports/shops/analytics/users) instead of the block's
+// placeholder demo content. navClouds/navSecondary/documents from the
+// original block are dropped entirely — none of them had anything real
+// behind them (Settings/Get Help/Search/Data Library/Word Assistant were
+// all "#" links to nowhere).
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
+      title: "Дашборд",
+      url: "/dashboard",
       icon: LayoutDashboardIcon,
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: ListIcon,
+      title: "Объявления",
+      url: "/products",
+      icon: PackageIcon,
     },
     {
-      title: "Analytics",
-      url: "#",
+      title: "Жалобы",
+      url: "/reports",
+      icon: FlagIcon,
+    },
+    {
+      title: "Магазины",
+      url: "/shops",
+      icon: StoreIcon,
+    },
+    {
+      title: "Аналитика",
+      url: "/analytics",
       icon: BarChartIcon,
     },
     {
-      title: "Projects",
-      url: "#",
-      icon: FolderIcon,
-    },
-    {
-      title: "Team",
-      url: "#",
+      title: "Пользователи",
+      url: "/users",
       icon: UsersIcon,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: SearchIcon,
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: DatabaseIcon,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: ClipboardListIcon,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: FileIcon,
     },
   ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  // Real logged-in admin instead of the block's hardcoded "shadcn /
+  // m@example.com". No avatar field exists on our user model at all, so
+  // that's passed empty — NavUser's Avatar should fall back to initials
+  // (standard shadcn Avatar/AvatarFallback pattern), though I haven't
+  // seen nav-user.tsx itself to confirm that's how it's implemented here.
+  const authUser = useAuthStore((s) => s.user);
+  const user = {
+    name: authUser?.name ?? "Админ",
+    email: authUser?.email ?? authUser?.phone ?? "",
+    avatar: "",
+  };
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -160,21 +88,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <Link href="/dashboard">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+                <span className="text-base font-semibold">Biztorg Admin</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

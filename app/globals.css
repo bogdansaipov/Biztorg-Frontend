@@ -123,12 +123,37 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Admin panel: slightly tighter corners than the public site's default —
+   deliberately different, since the admin panel is a dense internal tool
+   rather than the marketplace's card-heavy browsing UI. --radius-lg/xl/etc
+   are all derived from --radius via calc() in the @theme block above, so
+   overriding --radius alone here correctly cascades to every rounded-*
+   utility used within .admin-scope — no risk to the public site's own
+   corners, which still read from the unscoped --radius in :root. */
+.admin-scope {
+  --radius: 0.5rem;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Tailwind v4 deliberately stopped giving buttons cursor: pointer by
+     default (matches native OS button behavior, cursor: default) — this
+     is the exact fix from Tailwind's own upgrade guide
+     (https://tailwindcss.com/docs/upgrade-guide#buttons-use-the-default-cursor).
+     Covers every <button> and role="button" element site-wide, including
+     ones rendered by Radix under the hood (Select trigger, DropdownMenu
+     trigger, etc.) — not just the shared Button component. Disabled
+     buttons are excluded on purpose, matching native disabled-cursor
+     behavior. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
   }
 }
 
@@ -173,7 +198,7 @@
     transform: rotate(360deg);
   }
 }
-
+ 
 @keyframes loader-dash {
   0% {
     stroke-dasharray: 1, 125;
