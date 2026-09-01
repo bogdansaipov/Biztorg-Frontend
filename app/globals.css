@@ -173,7 +173,7 @@
     transform: rotate(360deg);
   }
 }
- 
+
 @keyframes loader-dash {
   0% {
     stroke-dasharray: 1, 125;
